@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: rockylinux:9.4
+From: rockylinux:9
 
 %labels
     Author Max
