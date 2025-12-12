@@ -1,0 +1,35 @@
+name: Build COLMAP + pycolmap (CUDA 12.4) Apptainer
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Optional but helpful: Apptainer + CUDA toolkit make the build big.
+      - name: Free disk space
+        uses: uw-psych/apptainer-actions/make-disk-space@v0
+        with:
+          # keep it conservative; you can increase if you still run out
+          tool-cache: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Setup Apptainer
+        uses: uw-psych/apptainer-actions/setup@v0
+
+      - name: Build SIF (needs sudo)
+        run: |
+          sudo apptainer --version
+          sudo apptainer build colmap_pycolmap_cuda124.sif colmap_pycolmap_cuda124.def
+
+      - name: Upload SIF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: colmap_pycolmap_cuda124_sif
+          path: colmap_pycolmap_cuda124.sif
