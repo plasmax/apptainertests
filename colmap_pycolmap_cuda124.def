@@ -1,0 +1,99 @@
+Bootstrap: docker
+From: rockylinux:9.4
+
+%labels
+    Author Max
+    Description COLMAP + pycolmap (CUDA 12.4) on Rocky 9 (glibc 2.34)
+
+%environment
+    export PATH="/opt/colmap/bin:${PATH}"
+    export LD_LIBRARY_PATH="/opt/colmap/lib64:/opt/colmap/lib:${LD_LIBRARY_PATH}"
+    export PYTHONNOUSERSITE=1
+
+%post
+    set -euo pipefail
+
+    # ---- Base tooling
+    dnf -y update
+    dnf -y install dnf-plugins-core git ca-certificates which file
+    dnf -y install gcc gcc-c++ make ninja-build cmake pkgconf-pkg-config
+    dnf -y install python3 python3-pip python3-devel
+
+    # Enable CRB + EPEL (many libs live here on EL9)
+    dnf config-manager --set-enabled crb || true
+    dnf -y install epel-release
+    dnf -y update
+
+    # ---- CUDA 12.4 toolkit (no driver install inside container; you use --nv at runtime)
+    # NVIDIA documents RHEL9/Rocky9 via dnf; we pin toolkit 12.4 explicitly. :contentReference[oaicite:2]{index=2}
+    dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
+    dnf -y clean all
+    dnf -y install cuda-toolkit-12-4
+
+    # ---- COLMAP deps (best-effort from repos; GUI/CGAL disabled so Qt/CGAL not needed)
+    # If a package isn't available in your mirror set, this step will tell you exactly which one.
+    dnf -y install \
+        boost-devel \
+        eigen3-devel \
+        freeimage-devel \
+        metis-devel \
+        glog-devel \
+        gflags-devel \
+        sqlite-devel \
+        glew-devel \
+        curl-devel \
+        openssl-devel \
+        libtiff-devel \
+        libjpeg-turbo-devel \
+        libpng-devel \
+        libstdc++-devel
+
+    # Ceres can be missing depending on repos; try system first.
+    if ! dnf -y install ceres-solver-devel; then
+        echo "ceres-solver-devel not available; building Ceres from source..."
+        dnf -y install suitesparse-devel lapack-devel blas-devel
+        git clone --depth 1 https://github.com/ceres-solver/ceres-solver.git /tmp/ceres
+        cmake -S /tmp/ceres -B /tmp/ceres/build -GNinja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_TESTING=OFF \
+            -DCMAKE_INSTALL_PREFIX=/usr/local
+        cmake --build /tmp/ceres/build
+        cmake --install /tmp/ceres/build
+        rm -rf /tmp/ceres
+    fi
+
+    python3 -m pip install --upgrade pip setuptools wheel
+
+    # ---- Build COLMAP (CUDA ON, GUI OFF, CGAL OFF)
+    git clone --depth 1 https://github.com/colmap/colmap.git /tmp/colmap
+    cmake -S /tmp/colmap -B /tmp/colmap/build -GNinja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/opt/colmap \
+        -DCUDA_ENABLED=ON \
+        -DGUI_ENABLED=OFF \
+        -DCGAL_ENABLED=OFF \
+        -DTESTS_ENABLED=OFF \
+        -DCMAKE_CUDA_ARCHITECTURES=86 \
+        -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY
+    cmake --build /tmp/colmap/build
+    cmake --install /tmp/colmap/build
+
+    # ---- Build/install pycolmap from the COLMAP repo (PyCOLMAP moved here) :contentReference[oaicite:3]{index=3}
+    # Install as a wheel into system python inside the container.
+    export CMAKE_PREFIX_PATH="/opt/colmap:${CMAKE_PREFIX_PATH:-}"
+    python3 -m pip install /tmp/colmap/pycolmap
+
+    # Cleanup
+    rm -rf /tmp/colmap
+    dnf -y clean all
+    rm -rf /var/cache/dnf
+
+%runscript
+    exec "$@"
+
+%test
+    set -e
+    echo "COLMAP:"
+    /opt/colmap/bin/colmap -h >/dev/null
+    echo "pycolmap:"
+    python3 -c "import pycolmap; print('pycolmap', pycolmap.__version__); print('COLMAP', pycolmap.COLMAP_version)"
