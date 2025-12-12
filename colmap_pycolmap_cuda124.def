@@ -14,30 +14,33 @@ From: rockylinux:9
 
     dnf -y update
 
-    # Core tooling first (needed to enable repos cleanly)
-    dnf -y install dnf-plugins-core ca-certificates git which file \
-                   gcc gcc-c++ make pkgconf-pkg-config \
-                   python3 python3-pip python3-devel \
-                   curl wget
+    # Rocky 9 minimal images often ship curl-minimal, which conflicts with curl
+    dnf -y remove curl-minimal || true
 
-    # Enable CRB + EPEL BEFORE trying to install anything that might live there
+    # Core tooling (use --allowerasing to resolve base-image conflicts cleanly)
+    dnf -y install --allowerasing \
+        dnf-plugins-core ca-certificates git which file \
+        gcc gcc-c++ make pkgconf-pkg-config \
+        python3 python3-pip python3-devel \
+        curl wget
+
+    # Enable CRB + EPEL early (many deps live there)
     dnf config-manager --set-enabled crb || true
     dnf -y install epel-release
     dnf -y update
 
-    # CMake in Rocky can be old depending on stream; prefer cmake if present, else fall back to cmake3.
+    # CMake: prefer cmake, else fall back to cmake3 and symlink
     if ! dnf -y install cmake; then
         dnf -y install cmake3
         ln -sf /usr/bin/cmake3 /usr/local/bin/cmake
     fi
 
-    # ---- CUDA 12.4 toolkit (no driver in container; you use --nv at runtime)
+    # CUDA toolkit 12.4 (no driver inside container; you use --nv at runtime)
     dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
     dnf -y clean all
     dnf -y install cuda-toolkit-12-4
 
-    # ---- COLMAP deps (CLI-only build: no Qt/GUI, no CGAL, no OpenGL)
-    # Many of these are in EPEL/CRB.
+    # COLMAP dependencies (CLI-only: no Qt/GUI, no OpenGL, no CGAL)
     dnf -y install \
         boost-devel \
         eigen3-devel \
@@ -46,8 +49,8 @@ From: rockylinux:9
         glog-devel \
         gflags-devel \
         sqlite-devel \
-        curl-devel \
         openssl-devel \
+        curl-devel \
         libtiff-devel \
         libjpeg-turbo-devel \
         libpng-devel \
@@ -56,7 +59,7 @@ From: rockylinux:9
         lapack-devel \
         blas-devel
 
-    # ---- Ceres: try system package, else build from source
+    # Ceres: try system package first; if missing, build from source
     if ! dnf -y install ceres-solver-devel; then
         echo "ceres-solver-devel not available; building Ceres from source..."
         git clone --depth 1 https://github.com/ceres-solver/ceres-solver.git /tmp/ceres
@@ -70,12 +73,11 @@ From: rockylinux:9
         rm -rf /tmp/ceres
     fi
 
-    # ---- Python build tooling for pycolmap (important on EL9)
+    # Python build tooling (helps pyproject builds)
     python3 -m pip install --upgrade pip setuptools wheel
     python3 -m pip install --upgrade scikit-build-core pybind11 cmake ninja || true
-    # (We don't *need* ninja, but installing it via pip sometimes helps other builds; it's optional.)
 
-    # ---- Build COLMAP
+    # Build COLMAP (CUDA ON, CLI-only)
     git clone --depth 1 https://github.com/colmap/colmap.git /tmp/colmap
 
     cmake -S /tmp/colmap -B /tmp/colmap/build \
@@ -92,8 +94,7 @@ From: rockylinux:9
     cmake --build /tmp/colmap/build -j"$(nproc)"
     cmake --install /tmp/colmap/build
 
-    # ---- Build/install pycolmap from the COLMAP repo
-    # Point pycolmap at the COLMAP we just installed.
+    # Build/install pycolmap from the COLMAP repo (PyCOLMAP lives in-repo)
     export CMAKE_PREFIX_PATH="/opt/colmap:${CMAKE_PREFIX_PATH:-}"
     python3 -m pip install /tmp/colmap/pycolmap
 
