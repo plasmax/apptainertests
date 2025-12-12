@@ -19,7 +19,7 @@ jobs:
 
       - name: Build .sif helloworld
         run: |
-          apptainer build helloworld.sif apptainer.def
+          sudo apptainer build helloworld.sif apptainer.def
 
       - name: Upload .sif as artifact
         uses: actions/upload-artifact@v4
