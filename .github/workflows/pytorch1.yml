@@ -1,0 +1,32 @@
+name: Build pytorch test apptainer
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Apptainer
+        uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: 1.3.6
+
+      - name: Build SIF
+        env:
+          # Apptainer build temp dir (important for big images)  [oai_citation:3‡apptainer.org](https://apptainer.org/docs/user/latest/cli/apptainer_build.html?utm_source=chatgpt.com)
+          APPTAINER_TMPDIR: ${{ runner.temp }}/apptainer-tmp
+        run: |
+          mkdir -p "$APPTAINER_TMPDIR"
+          apptainer --version
+          sudo -E apptainer build torch1.sif torch1.def
+
+      - name: Upload SIF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: torch1.sif
+          path: torch1.sif
