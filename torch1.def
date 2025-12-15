@@ -1,0 +1,19 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%post
+    apt-get update && apt-get install -y \
+        python3 \
+        python3-pip \
+        python3-venv \
+        git \
+        && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+    pip3 install torch==1.13.1+cu117 torchvision==0.14.1+cu117 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu117
+    pip3 install packaging
+    pip3 uninstall -y numpy
+    pip3 install numpy==1.26.4
+    pip3 install opencv-contrib-python-headless==4.11.0.86
+    
+    pip3 install pyright[nodejs] pytest
+
