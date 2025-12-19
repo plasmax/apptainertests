@@ -27,7 +27,9 @@ open3d
 scikit-learn
 git+https://github.com/EasternJournalist/utils3d.git@c5daf6f6c244d251f252102d09e9b7bcef791a38
 EOF
-    uv pip install --system -r /tmp/requirements.txt
+    uv pip install --system \
+      --extra-index-url https://download.pytorch.org/whl/cu124 \
+      -r /tmp/requirements.txt
 
 %environment
     export PYTHONUNBUFFERED=1
