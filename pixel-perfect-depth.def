@@ -1,0 +1,35 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%post
+    set -e
+
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        python3.10 python3.10-venv python3-pip \
+        ca-certificates curl \
+        libgl1 \
+        libglib2.0-0 \
+        && rm -rf /var/lib/apt/lists/*
+
+    python3.10 -m pip install -U pip uv pyright[nodejs]
+
+    cat > /tmp/requirements.txt <<'EOF'
+torch
+torchvision
+timm
+opencv-python
+Pillow
+matplotlib
+numpy
+open3d
+scikit-learn
+git+https://github.com/EasternJournalist/utils3d.git@c5daf6f6c244d251f252102d09e9b7bcef791a38
+EOF
+    uv pip install --system -r /tmp/requirements.txt
+
+%environment
+    export PYTHONUNBUFFERED=1
+
+%test
+    python3.10 -c "import torch; print('torch', torch.__version__); print('cuda', torch.cuda.is_available())"
