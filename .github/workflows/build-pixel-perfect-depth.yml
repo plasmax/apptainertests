@@ -8,6 +8,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /tmp/*
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
+          
       - name: Checkout repository
         uses: actions/checkout@v4
 
