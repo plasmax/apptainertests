@@ -10,6 +10,7 @@ From: ubuntu:22.04
         ca-certificates curl \
         libgl1 \
         libglib2.0-0 \
+        git \
         && rm -rf /var/lib/apt/lists/*
 
     python3.10 -m pip install -U pip uv pyright[nodejs]
