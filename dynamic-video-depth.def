@@ -15,7 +15,8 @@ From: ubuntu:22.04
 
     python3.10 -m pip install -U pip uv pyright[nodejs]
 
-    cat > /tmp/requirements.txt <<'EOF'absl-py==0.13.0
+    cat > /tmp/requirements.txt <<'EOF'
+absl-py==0.13.0
 backcall==0.2.0
 cachetools==4.2.2
 certifi==2021.5.30
