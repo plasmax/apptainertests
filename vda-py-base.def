@@ -1,0 +1,42 @@
+Bootstrap: docker
+From: python:3.10.17-slim-bookworm
+
+%post
+    set -e
+
+    # Install system dependencies required for OpenCV
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        libglib2.0-0 \
+        libgl1-mesa-glx \
+        && rm -rf /var/lib/apt/lists/*
+
+    # Upgrade pip and install uv
+    pip install -U pip uv
+
+    # Write the requirements file directly inside the container
+    cat > /tmp/requirements_cpu.txt <<'EOF'
+numpy==1.24.1
+# CPU torch 2.4.0
+torch @ https://download.pytorch.org/whl/cpu/torch-2.4.0%2Bcpu-cp310-cp310-linux_x86_64.whl
+torchvision @ https://download.pytorch.org/whl/cpu/torchvision-0.19.0%2Bcpu-cp310-cp310-linux_x86_64.whl
+einops==0.8.0
+opencv-python-headless==4.11.0.86
+easydict
+tqdm==4.67.1
+OpenEXR==3.3.1
+EOF
+
+    # Install dependencies
+    uv pip install --system -r /tmp/requirements_cpu.txt
+
+    # Clean up
+    rm /tmp/requirements_cpu.txt
+
+%environment
+    export PYTHONUNBUFFERED=1
+
+%test
+    # Quick verification that imports work and we have the correct Torch version
+    python3 -c "import torch; print(f'Torch Version: {torch.__version__}'); print(f'CUDA Available: {torch.cuda.is_available()}')"
+    python3 -c "import cv2; print(f'OpenCV Version: {cv2.__version__}')"
