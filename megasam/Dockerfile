@@ -29,10 +29,14 @@ RUN git clone --depth 1 https://github.com/mega-sam/mega-sam.git /app
 WORKDIR /app
 RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
     conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r && \
+    sed -i '/torch-scatter==2.1.2/d' environment.yml && \
     conda env create -f environment.yml
 
 # Activate Conda environment in subsequent RUN commands
 SHELL ["conda", "run", "-n", "mega_sam", "/bin/bash", "-c"]
+
+# Install torch-scatter from the PyG wheel index to avoid source builds
+RUN pip install --no-cache-dir torch-scatter==2.1.2 -f https://data.pyg.org/whl/torch-2.0.1+cu118.html
 
 # Install xformers (Pre-built binary as suggested in README for PyTorch 2.0.1 + CUDA 11.8)
 RUN conda install xformers::xformers
