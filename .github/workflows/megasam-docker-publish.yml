@@ -62,8 +62,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: Dockerfile
+          context: megasam
+          file: megasam/Dockerfile
           push: true
           # Tags the image as 'latest' and with the git SHA
           tags: |
