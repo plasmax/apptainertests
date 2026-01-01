@@ -27,7 +27,9 @@ WORKDIR /app
 # Clone upstream MegaSaM repo and create conda environment
 RUN git clone --depth 1 https://github.com/mega-sam/mega-sam.git /app
 WORKDIR /app
-RUN conda env create -f environment.yml
+RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
+    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r && \
+    conda env create -f environment.yml
 
 # Activate Conda environment in subsequent RUN commands
 SHELL ["conda", "run", "-n", "mega_sam", "/bin/bash", "-c"]
