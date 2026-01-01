@@ -24,8 +24,9 @@ ENV PATH=$CONDA_DIR/bin:$PATH
 # Set working directory
 WORKDIR /app
 
-# Copy environment file and create conda environment
-COPY environment.yml .
+# Clone upstream MegaSaM repo and create conda environment
+RUN git clone --depth 1 https://github.com/mega-sam/mega-sam.git /app
+WORKDIR /app
 RUN conda env create -f environment.yml
 
 # Activate Conda environment in subsequent RUN commands
@@ -34,8 +35,8 @@ SHELL ["conda", "run", "-n", "mega_sam", "/bin/bash", "-c"]
 # Install xformers (Pre-built binary as suggested in README for PyTorch 2.0.1 + CUDA 11.8)
 RUN conda install xformers::xformers
 
-# Copy the entire repository (ensure .gitmodules/submodules are checked out by the workflow)
-COPY . /app
+# Ensure git submodules are available (if present)
+RUN git submodule update --init --recursive
 
 # Compile the 'base' extension for camera tracking
 RUN cd base && python setup.py install
