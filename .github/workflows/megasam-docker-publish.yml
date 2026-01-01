@@ -1,0 +1,73 @@
+name: Build and Publish MegaSaM
+
+on:
+  workflow_dispatch:
+
+env:
+  # Replace with your Docker Hub username/repo if different
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Disk usage (before)
+        run: df -h
+
+      # Biggest win: remove preinstalled toolchains you almost certainly don't need.
+      # This frees space on the same filesystem as /home/runner/work (where your .sif is written).
+      - name: Free disk space (aggressive)
+        run: |
+          set -euxo pipefail
+
+          # Big preinstalled stacks (commonly safe to remove for container builds)
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /usr/local/.ghcup || true
+          sudo rm -rf /usr/share/swift || true
+
+          # If you are not using Java in this workflow, uncomment:
+          # sudo rm -rf /usr/lib/jvm || true
+
+          # Clean apt + tmp
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
+          sudo rm -rf /tmp/*
+
+          # If docker exists, nuke layers/caches (often several GB)
+          docker system prune -af || true
+
+      - name: Disk usage (after)
+        run: df -h
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive  # Crucial for the 'base' submodule
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          # Tags the image as 'latest' and with the git SHA
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/megasam:latest
+            ${{ secrets.DOCKER_USERNAME }}/megasam:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
