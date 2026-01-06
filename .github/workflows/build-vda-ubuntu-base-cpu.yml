@@ -1,0 +1,63 @@
+name: VDA-UBUNTU-PYRIGHT (CPU)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Disk usage (before)
+        run: df -h
+
+      # Biggest win: remove preinstalled toolchains you almost certainly don't need.
+      # This frees space on the same filesystem as /home/runner/work (where your .sif is written).
+      - name: Free disk space (aggressive)
+        run: |
+          set -euxo pipefail
+
+          # Big preinstalled stacks (commonly safe to remove for container builds)
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /usr/local/.ghcup || true
+          sudo rm -rf /usr/share/swift || true
+
+          # If you are not using Java in this workflow, uncomment:
+          # sudo rm -rf /usr/lib/jvm || true
+
+          # Clean apt + tmp
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
+          sudo rm -rf /tmp/*
+
+          # If docker exists, nuke layers/caches (often several GB)
+          docker system prune -af || true
+
+      - name: Disk usage (after)
+        run: df -h
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Apptainer
+        uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: 1.3.6
+
+      - name: Build Apptainer image
+        env:
+          # Keep Apptainer caches + staging out of your repo workspace
+          APPTAINER_TMPDIR: /tmp
+          APPTAINER_CACHEDIR: /tmp/apptainer-cache
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/apptainer-cache
+          sudo -E apptainer build vda-ubuntu-base-cpu.sif vda-ubuntu-base-cpu.def
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vda-ubuntu-base-cpu-sif
+          path: vda-ubuntu-base-cpu.sif
