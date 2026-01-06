@@ -31,7 +31,7 @@ EOF
     # Install dependencies
     uv pip install --system -r /tmp/requirements_cpu.txt
     
-    uv pip install --system pyright[nodejs]
+    uv pip install --system pyright[nodejs] pytest
 
     # Clean up
     rm /tmp/requirements_cpu.txt
