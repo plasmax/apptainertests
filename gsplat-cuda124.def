@@ -44,15 +44,17 @@ From: ubuntu:22.04
     # Symlink cuda to the installed version
     ln -sf /usr/local/cuda-12.4 /usr/local/cuda
 
+    # Set CUDA architectures for compilation (required for CI builds without GPU)
+    # Covers: Volta (V100), Turing (RTX 20xx, T4), Ampere (RTX 30xx, A100, A10),
+    # Ada Lovelace (RTX 40xx, L4, L40), Hopper (H100)
+    export TORCH_CUDA_ARCH_LIST="7.0;7.5;8.0;8.6;8.9;9.0"
+
     # Upgrade pip and install uv
     pip install -U pip uv
 
     # Write the requirements file directly inside the container
+    # Note: CUDA extension packages are installed separately with --no-build-isolation
     cat > /tmp/requirements_gsplat.txt <<'EOF'
-# PyTorch 2.4.0 with CUDA 12.4
-torch @ https://download.pytorch.org/whl/cu124/torch-2.4.0%2Bcu124-cp310-cp310-linux_x86_64.whl
-torchvision @ https://download.pytorch.org/whl/cu124/torchvision-0.19.0%2Bcu124-cp310-cp310-linux_x86_64.whl
-
 # gsplat core dependencies
 numpy<2.0.0
 ninja
@@ -77,20 +79,24 @@ tensorboard
 tensorly
 pyyaml
 matplotlib
-git+https://github.com/rahul-goel/fused-ssim@328dc9836f513d00c4b5bc38fe30478b4435cbb5
-git+https://github.com/harry7557558/fused-bilagrid@49f0ef06c9f81810fb9b5dd9027cf1844950cc16
 splines
-ppisp @ git+https://github.com/nv-tlabs/ppisp@v1.0.0
 EOF
 
-    # Install base dependencies first (torch needs to be available for gsplat build)
+    # Install PyTorch with CUDA 12.4 first (required for all CUDA extension builds)
     uv pip install --system \
         "torch @ https://download.pytorch.org/whl/cu124/torch-2.4.0%2Bcu124-cp310-cp310-linux_x86_64.whl" \
         "torchvision @ https://download.pytorch.org/whl/cu124/torchvision-0.19.0%2Bcu124-cp310-cp310-linux_x86_64.whl"
 
     # Install gsplat from source (builds CUDA extensions)
-    # --no-build-isolation is required so gsplat's setup.py can find torch
-    MAX_JOBS=4 uv pip install --system --no-build-isolation git+https://github.com/nerfstudio-project/gsplat.git
+    # --no-build-isolation is required so setup.py can find torch
+    MAX_JOBS=4 uv pip install --system --no-build-isolation \
+        git+https://github.com/nerfstudio-project/gsplat.git
+
+    # Install other CUDA extension packages (also need --no-build-isolation)
+    MAX_JOBS=4 uv pip install --system --no-build-isolation \
+        "git+https://github.com/rahul-goel/fused-ssim@328dc9836f513d00c4b5bc38fe30478b4435cbb5" \
+        "git+https://github.com/harry7557558/fused-bilagrid@49f0ef06c9f81810fb9b5dd9027cf1844950cc16" \
+        "ppisp @ git+https://github.com/nv-tlabs/ppisp@v1.0.0"
 
     # Install remaining dependencies from requirements
     uv pip install --system -r /tmp/requirements_gsplat.txt
