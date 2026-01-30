@@ -1,0 +1,109 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%labels
+    Description gsplat (Gaussian Splatting) with CUDA 12.4 on Ubuntu 22.04 (glibc 2.34)
+
+%environment
+    export PATH="/usr/local/cuda/bin:${PATH}"
+    export LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH}"
+    export PYTHONUNBUFFERED=1
+    export PYTHONNOUSERSITE=1
+
+%post
+    set -e
+
+    export DEBIAN_FRONTEND=noninteractive
+
+    # Install system dependencies
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        python3.10 python3-pip python3.10-dev \
+        ca-certificates curl wget gnupg \
+        git build-essential ninja-build \
+        libglib2.0-0 libgl1-mesa-glx libsm6 libxext6 libxrender1 \
+        ffmpeg \
+        && rm -rf /var/lib/apt/lists/*
+
+    # Add NVIDIA CUDA repository for Ubuntu 22.04
+    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+    dpkg -i cuda-keyring_1.1-1_all.deb
+    rm cuda-keyring_1.1-1_all.deb
+    apt-get update
+
+    # Install CUDA toolkit 12.4 (no driver needed inside container; use --nv at runtime)
+    apt-get install -y --no-install-recommends \
+        cuda-toolkit-12-4 \
+        && rm -rf /var/lib/apt/lists/*
+
+    # Set CUDA paths for the build
+    export PATH="/usr/local/cuda-12.4/bin:${PATH}"
+    export LD_LIBRARY_PATH="/usr/local/cuda-12.4/lib64:${LD_LIBRARY_PATH}"
+    export CUDA_HOME="/usr/local/cuda-12.4"
+
+    # Symlink cuda to the installed version
+    ln -sf /usr/local/cuda-12.4 /usr/local/cuda
+
+    # Upgrade pip and install uv
+    pip install -U pip uv
+
+    # Write the requirements file directly inside the container
+    cat > /tmp/requirements_gsplat.txt <<'EOF'
+# PyTorch 2.4.0 with CUDA 12.4
+torch @ https://download.pytorch.org/whl/cu124/torch-2.4.0%2Bcu124-cp310-cp310-linux_x86_64.whl
+torchvision @ https://download.pytorch.org/whl/cu124/torchvision-0.19.0%2Bcu124-cp310-cp310-linux_x86_64.whl
+
+# gsplat core dependencies
+numpy<2.0.0
+ninja
+jaxtyping
+rich>=12
+
+# examples dependencies (from examples/requirements.txt)
+# pycolmap for data parsing
+git+https://github.com/rmbrualla/pycolmap@cc7ea4b7301720ac29287dbe450952511b32125e
+# viser for visualization
+viser
+git+https://github.com/nerfstudio-project/nerfview@4538024fe0d15fd1a0e4d760f3695fc44ca72787
+imageio[ffmpeg]
+scikit-learn
+tqdm
+torchmetrics[image]
+opencv-python-headless
+tyro>=0.8.8
+Pillow
+piexif
+tensorboard
+tensorly
+pyyaml
+matplotlib
+git+https://github.com/rahul-goel/fused-ssim@328dc9836f513d00c4b5bc38fe30478b4435cbb5
+git+https://github.com/harry7557558/fused-bilagrid@49f0ef06c9f81810fb9b5dd9027cf1844950cc16
+splines
+ppisp @ git+https://github.com/nv-tlabs/ppisp@v1.0.0
+EOF
+
+    # Install base dependencies first (torch needs to be available for gsplat build)
+    uv pip install --system \
+        "torch @ https://download.pytorch.org/whl/cu124/torch-2.4.0%2Bcu124-cp310-cp310-linux_x86_64.whl" \
+        "torchvision @ https://download.pytorch.org/whl/cu124/torchvision-0.19.0%2Bcu124-cp310-cp310-linux_x86_64.whl"
+
+    # Install gsplat from source (builds CUDA extensions)
+    MAX_JOBS=4 uv pip install --system git+https://github.com/nerfstudio-project/gsplat.git
+
+    # Install remaining dependencies from requirements
+    uv pip install --system -r /tmp/requirements_gsplat.txt
+
+    # Clean up
+    rm /tmp/requirements_gsplat.txt
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
+
+%test
+    set -e
+    # Verify CUDA toolkit
+    nvcc --version
+    # Verify PyTorch and CUDA availability
+    python3 -c "import torch; print(f'Torch Version: {torch.__version__}'); print(f'CUDA Available: {torch.cuda.is_available()}'); print(f'CUDA Version: {torch.version.cuda}')"
+    # Verify gsplat import
+    python3 -c "import gsplat; print(f'gsplat imported successfully')"
