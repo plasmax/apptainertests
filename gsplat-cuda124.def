@@ -93,9 +93,16 @@ EOF
         git+https://github.com/nerfstudio-project/gsplat.git
 
     # Install other CUDA extension packages (also need --no-build-isolation)
-    MAX_JOBS=4 uv pip install --system --no-build-isolation \
-        "git+https://github.com/rahul-goel/fused-ssim@328dc9836f513d00c4b5bc38fe30478b4435cbb5" \
-        "git+https://github.com/harry7557558/fused-bilagrid@49f0ef06c9f81810fb9b5dd9027cf1844950cc16" \
+    # Install one at a time to isolate any failures and reduce memory pressure
+    MAX_JOBS=2 uv pip install --system --no-build-isolation \
+        "git+https://github.com/rahul-goel/fused-ssim@328dc9836f513d00c4b5bc38fe30478b4435cbb5"
+
+    MAX_JOBS=2 uv pip install --system --no-build-isolation \
+        "git+https://github.com/harry7557558/fused-bilagrid@49f0ef06c9f81810fb9b5dd9027cf1844950cc16"
+
+    # ppisp uses torch.cuda.is_available() which is False in CI, falling back to
+    # its own architecture list. CUDAARCHS env var can override nvcc architectures.
+    CUDAARCHS="75;80;86;89;90" MAX_JOBS=2 uv pip install --system --no-build-isolation \
         "ppisp @ git+https://github.com/nv-tlabs/ppisp@v1.0.0"
 
     # Install remaining dependencies from requirements
