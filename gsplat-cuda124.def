@@ -103,9 +103,10 @@ EOF
     # ppisp uses torch.cuda.is_available() which is False in CI, falling back to
     # its own architecture list which includes compute_120 (Blackwell) - not supported by CUDA 12.4
     # Clone, patch setup.py to remove unsupported architecture, then install
+    # Use pip instead of uv - uv has issues parsing ppisp's metadata
     git clone --depth 1 --branch v1.0.0 https://github.com/nv-tlabs/ppisp.git /tmp/ppisp
     sed -i '/compute_120/d' /tmp/ppisp/setup.py
-    MAX_JOBS=2 uv pip install --system --no-build-isolation /tmp/ppisp
+    MAX_JOBS=2 pip install --no-build-isolation /tmp/ppisp
     rm -rf /tmp/ppisp
 
     # Install remaining dependencies from requirements
