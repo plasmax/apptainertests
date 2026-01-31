@@ -22,6 +22,7 @@ From: ubuntu:22.04
         ca-certificates curl wget gnupg \
         git build-essential ninja-build \
         libglib2.0-0 libgl1-mesa-glx libsm6 libxext6 libxrender1 \
+        libglm-dev \
         ffmpeg \
         && rm -rf /var/lib/apt/lists/*
 
@@ -123,5 +124,5 @@ EOF
     nvcc --version
     # Verify PyTorch and CUDA availability
     python3 -c "import torch; print(f'Torch Version: {torch.__version__}'); print(f'CUDA Available: {torch.cuda.is_available()}'); print(f'CUDA Version: {torch.version.cuda}')"
-    # Verify gsplat import
-    python3 -c "import gsplat; print(f'gsplat imported successfully')"
+    # Verify gsplat import and CUDA extension is built
+    python3 -c "import gsplat; from gsplat import csrc; print(f'gsplat {gsplat.__version__} with CUDA extension loaded successfully')"
