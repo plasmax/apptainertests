@@ -22,8 +22,13 @@ From: colmap/colmap:latest
     fi
 
     if ! python3 -c "import pycolmap" >/dev/null 2>&1; then
-        python3 -m pip install --no-cache-dir --upgrade pip
-        python3 -m pip install --no-cache-dir pycolmap-cuda12
+        PIP_BREAK_FLAG=""
+        if python3 -m pip install --help 2>/dev/null | grep -q -- '--break-system-packages'; then
+            PIP_BREAK_FLAG="--break-system-packages"
+        fi
+
+        python3 -m pip install --no-cache-dir ${PIP_BREAK_FLAG} --upgrade pip
+        python3 -m pip install --no-cache-dir ${PIP_BREAK_FLAG} pycolmap-cuda12
     fi
 
 %test
