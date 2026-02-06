@@ -1,4 +1,4 @@
-name: Build COLMAP + pycolmap (CUDA 12.4) Apptainer
+name: Build COLMAP + pycolmap Apptainer
 
 on:
   workflow_dispatch:
@@ -25,12 +25,16 @@ jobs:
 
       - name: Build SIF
         env:
-          # Apptainer build temp dir (important for big images)  [oai_citation:3‡apptainer.org](https://apptainer.org/docs/user/latest/cli/apptainer_build.html?utm_source=chatgpt.com)
           APPTAINER_TMPDIR: ${{ runner.temp }}/apptainer-tmp
         run: |
           mkdir -p "$APPTAINER_TMPDIR"
           apptainer --version
           sudo -E apptainer build colmap_pycolmap_cuda124.sif colmap_pycolmap_cuda124.def
+
+      - name: Smoke test image
+        run: |
+          apptainer exec colmap_pycolmap_cuda124.sif colmap -h >/dev/null
+          apptainer exec colmap_pycolmap_cuda124.sif python3 -c "import pycolmap; print(pycolmap.__version__)"
 
       - name: Upload SIF artifact
         uses: actions/upload-artifact@v4
