@@ -27,7 +27,7 @@ From: colmap/colmap:latest
             PIP_BREAK_FLAG="--break-system-packages"
         fi
 
-        python3 -m pip install --no-cache-dir ${PIP_BREAK_FLAG} --upgrade pip
+        # Avoid upgrading distro-managed pip (can fail on Debian/Ubuntu images).
         python3 -m pip install --no-cache-dir ${PIP_BREAK_FLAG} pycolmap-cuda12
     fi
 
