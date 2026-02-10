@@ -1,0 +1,106 @@
+name: build-xformers-cu128-cp313
+
+on:
+  workflow_dispatch:
+    inputs:
+      xformers_ref:
+        description: "xFormers git ref (tag/branch/sha)"
+        required: false
+        default: "main"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      PY_TAG: cp313-cp313
+      TORCH_INDEX_URL: https://download.pytorch.org/whl/cu128
+      TORCH_VERSION: 2.9.1+cu128
+
+    steps:
+      - name: Disk usage (before)
+        run: df -h
+
+      - name: Free disk space (aggressive)
+        run: |
+          set -euxo pipefail
+
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /usr/local/.ghcup || true
+          sudo rm -rf /usr/share/swift || true
+
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
+          sudo rm -rf /tmp/*
+
+          docker system prune -af || true
+
+      - name: Disk usage (after)
+        run: df -h
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build xFormers wheel (manylinux_2_34 + CUDA 12.8 + CPython 3.13)
+        env:
+          XFORMERS_REF: ${{ github.event.inputs.xformers_ref || 'main' }}
+        run: |
+          set -euxo pipefail
+          mkdir -p dist
+
+          docker run --rm \
+            -e PY_TAG="${PY_TAG}" \
+            -e TORCH_INDEX_URL="${TORCH_INDEX_URL}" \
+            -e TORCH_VERSION="${TORCH_VERSION}" \
+            -e XFORMERS_REF="${XFORMERS_REF}" \
+            -v "${PWD}:/project" \
+            quay.io/pypa/manylinux_2_34_x86_64:latest \
+            bash -lc '
+              set -euxo pipefail
+
+              dnf install -y dnf-plugins-core git ninja-build
+              dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
+              dnf install -y cuda-toolkit-12-8
+
+              export PATH="/usr/local/cuda/bin:${PATH}"
+              export LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}"
+              export CUDA_HOME="/usr/local/cuda"
+
+              PYBIN="/opt/python/${PY_TAG}/bin"
+              "${PYBIN}/python" -m pip install --upgrade pip setuptools wheel cmake ninja packaging
+              "${PYBIN}/python" -m pip install --index-url "${TORCH_INDEX_URL}" "torch==${TORCH_VERSION}"
+
+              git clone --depth 1 --branch "${XFORMERS_REF}" https://github.com/facebookresearch/xformers.git /tmp/xformers
+
+              cd /tmp/xformers
+              export FORCE_CUDA=1
+              export TORCH_CUDA_ARCH_LIST="8.0;8.6;8.9;9.0"
+              "${PYBIN}/python" -m pip wheel . --no-build-isolation -w /project/dist
+            '
+
+      - name: Smoke test wheel import
+        run: |
+          set -euxo pipefail
+
+          docker run --rm \
+            -e PY_TAG="${PY_TAG}" \
+            -e TORCH_INDEX_URL="${TORCH_INDEX_URL}" \
+            -e TORCH_VERSION="${TORCH_VERSION}" \
+            -v "${PWD}:/project" \
+            quay.io/pypa/manylinux_2_34_x86_64:latest \
+            bash -lc '
+              set -euxo pipefail
+              PYBIN="/opt/python/${PY_TAG}/bin"
+              "${PYBIN}/python" -m pip install --upgrade pip
+              "${PYBIN}/python" -m pip install --index-url "${TORCH_INDEX_URL}" "torch==${TORCH_VERSION}"
+              "${PYBIN}/python" -m pip install /project/dist/xformers-*.whl
+              "${PYBIN}/python" -c "import torch, xformers; print(torch.__version__); print(xformers.__version__)"
+            '
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: xformers-cu128-cp313-manylinux_2_34-wheel
+          path: dist/*.whl
+          if-no-files-found: error
