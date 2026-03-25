@@ -30,10 +30,28 @@ jobs:
       - name: Build SIF
         env:
           APPTAINER_TMPDIR: ${{ runner.temp }}/apptainer-tmp
+          APPTAINER_CACHEDIR: ${{ runner.temp }}/apptainer-cache
         run: |
-          mkdir -p "$APPTAINER_TMPDIR"
+          mkdir -p "$APPTAINER_TMPDIR" "$APPTAINER_CACHEDIR"
           apptainer --version
-          sudo -E apptainer build lichtfeld_studio_el9.sif lichtfeld-studio-el9.def
+
+          success=0
+          for attempt in 1 2 3; do
+            echo "Apptainer build attempt ${attempt}/3"
+            if sudo -E apptainer build lichtfeld_studio_el9.sif lichtfeld-studio-el9.def; then
+              success=1
+              break
+            fi
+
+            echo "Build attempt ${attempt} failed; cleaning cache and retrying after backoff..."
+            sudo -E apptainer cache clean -f || true
+            sleep $((attempt * 30))
+          done
+
+          if [ "$success" -ne 1 ]; then
+            echo "Apptainer build failed after 3 attempts"
+            exit 1
+          fi
 
       - name: Smoke test image
         run: |
