@@ -15,3 +15,5 @@
 [![VDA-PY (CPU)](https://github.com/plasmax/apptainertests/actions/workflows/build-vda-py-base.yml/badge.svg)](https://github.com/plasmax/apptainertests/actions/workflows/build-vda-py-base.yml)
 
 [![VDA-UBUNTU-PYRIGHT (CPU)](https://github.com/plasmax/apptainertests/actions/workflows/build-vda-ubuntu-base-cpu.yml/badge.svg)](https://github.com/plasmax/apptainertests/actions/workflows/build-vda-ubuntu-base-cpu.yml)
+
+[![Build LichtFeld Studio (EL9)](https://github.com/plasmax/apptainertests/actions/workflows/build-lichtfeld-studio-el9.yml/badge.svg)](https://github.com/plasmax/apptainertests/actions/workflows/build-lichtfeld-studio-el9.yml)
