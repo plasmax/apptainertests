@@ -1,0 +1,91 @@
+Bootstrap: docker
+From: rockylinux:9
+
+%labels
+    Description EL9 Apptainer image for LichtFeld Studio built from source with vcpkg
+
+%environment
+    export PATH=/opt/lichtfeld/bin:/usr/local/cuda/bin:$PATH
+    export LD_LIBRARY_PATH=/opt/lichtfeld/lib:/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}
+    export VCPKG_ROOT=/opt/vcpkg
+    export QT_X11_NO_MITSHM=1
+
+
+%help
+    Run with NVIDIA + X11 passthrough, for example:
+      apptainer run --nv \
+        --bind /tmp/.X11-unix:/tmp/.X11-unix \
+        --bind /run/user/$(id -u):/run/user/$(id -u) \
+        --env DISPLAY=${DISPLAY} \
+        --env XDG_RUNTIME_DIR=/run/user/$(id -u) \
+        lichtfeld_studio_el9.sif
+
+%post
+    set -eu
+
+    dnf -y update
+    dnf -y install dnf-plugins-core epel-release
+
+    dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
+
+    dnf -y install \
+        gcc \
+        gcc-c++ \
+        make \
+        cmake \
+        ninja-build \
+        git \
+        curl \
+        zip \
+        unzip \
+        tar \
+        pkgconf-pkg-config \
+        perl \
+        python3 \
+        python3-pip \
+        which \
+        file \
+        mesa-libGL \
+        mesa-libEGL \
+        libX11 \
+        libXext \
+        libXrandr \
+        libXinerama \
+        libXcursor \
+        libXi \
+        libxkbcommon \
+        libxcb \
+        xcb-util \
+        xcb-util-image \
+        xcb-util-keysyms \
+        xcb-util-renderutil \
+        xcb-util-wm \
+        cuda-toolkit-12-8
+
+    dnf clean all
+    rm -rf /var/cache/dnf
+
+    git clone --depth 1 https://github.com/microsoft/vcpkg.git /opt/vcpkg
+    /opt/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+
+    git clone --depth 1 --recursive https://github.com/MrNeRF/LichtFeld-Studio /opt/LichtFeld-Studio
+
+    export VCPKG_ROOT=/opt/vcpkg
+    cmake -S /opt/LichtFeld-Studio -B /opt/LichtFeld-Studio/build \
+        -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake
+
+    cmake --build /opt/LichtFeld-Studio/build --parallel "$(nproc)"
+    cmake --install /opt/LichtFeld-Studio/build --prefix /opt/lichtfeld
+
+    ln -sf /opt/lichtfeld/bin/LichtFeld-Studio /usr/local/bin/lichtfeld-studio
+
+%runscript
+    export QT_X11_NO_MITSHM=${QT_X11_NO_MITSHM:-1}
+    exec /opt/lichtfeld/bin/LichtFeld-Studio "$@"
+
+%test
+    set -eu
+    test -x /opt/lichtfeld/bin/LichtFeld-Studio
+    ldd /opt/lichtfeld/bin/LichtFeld-Studio >/dev/null

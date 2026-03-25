@@ -1,0 +1,47 @@
+name: Build LichtFeld Studio (EL9)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'lichtfeld-studio-el9.def'
+      - '.github/workflows/build-lichtfeld-studio-el9.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Apptainer
+        uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: 1.3.6
+
+      - name: Free disk space (optional but recommended)
+        run: |
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          sudo apt-get clean
+          df -h
+
+      - name: Build SIF
+        env:
+          APPTAINER_TMPDIR: ${{ runner.temp }}/apptainer-tmp
+        run: |
+          mkdir -p "$APPTAINER_TMPDIR"
+          apptainer --version
+          sudo -E apptainer build lichtfeld_studio_el9.sif lichtfeld-studio-el9.def
+
+      - name: Smoke test image
+        run: |
+          apptainer exec lichtfeld_studio_el9.sif test -x /opt/lichtfeld/bin/LichtFeld-Studio
+          apptainer exec lichtfeld_studio_el9.sif /opt/lichtfeld/bin/LichtFeld-Studio --help >/dev/null || true
+
+      - name: Upload SIF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lichtfeld_studio_el9_sif
+          path: lichtfeld_studio_el9.sif
