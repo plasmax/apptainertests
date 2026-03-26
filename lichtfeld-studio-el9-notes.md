@@ -111,3 +111,88 @@
 
 - The offline test host reported `CUDA 12.4 unsupported. Requires 12.8+ (driver 570+)`.
 - That is a host driver/runtime issue, not the container build failure, but it may still limit features after the GUI issue is fixed.
+
+## 2026-03-26 handoff notes for next session
+
+- Current known-good interactive image:
+  `/net/code/workspaces/mlast/lichtfeld_studio_el9_interactive_v5.sif`
+- User confirmed:
+  - GUI loads
+  - buttons are visible
+  - native file dialogs now work
+  - training a Gaussian splat from an existing COLMAP dataset is working
+- Known working launch pattern:
+
+```bash
+uid=$(id -u)
+apptainer run --cleanenv --nv \
+  --bind /tmp/.X11-unix:/tmp/.X11-unix \
+  --bind /run/user/${uid}:/run/user/${uid} \
+  --bind "$HOME/.Xauthority:$HOME/.Xauthority" \
+  --bind /mnt/scratch:/mnt/scratch \
+  --env DISPLAY="$DISPLAY" \
+  --env XAUTHORITY="$HOME/.Xauthority" \
+  --env SDL_VIDEODRIVER=x11 \
+  /net/code/workspaces/mlast/lichtfeld_studio_el9_interactive_v5.sif
+```
+
+- Bind note:
+  - `--bind /mnt/scratch:/mnt/scratch` was needed for dataset access during training.
+  - `--bind /mnt:/mnt` would probably also work, but it is broader than needed.
+
+## 2026-03-26 workflow status
+
+- GitHub Actions build retries were removed to avoid 2+ hour reruns hiding the real failure.
+- Commit:
+  `ec69ccd` (`Remove GitHub Actions build retries`)
+- Branch:
+  `codex/set-up-github-actions-for-apptainer-build-z6kkc0`
+- Important:
+  - Any GitHub Actions run that started before commit `ec69ccd` still uses the old retrying workflow and may need to be cancelled manually.
+
+## 2026-03-26 COLMAP and plugin findings
+
+- LichtFeld can train directly from a COLMAP dataset without any plugin.
+  - Relevant files:
+    - `src/training/training_setup.cpp`
+    - `docs/docs/development/mcp/recipes/load-dataset-and-train.md`
+- Plugins are not required for core Gaussian splat training from COLMAP.
+- `SplatReady` is a workflow plugin that converts video to a COLMAP-ready dataset, then imports it into LichtFeld.
+  - Repo:
+    `https://github.com/jacobvanbeets/SplatReady`
+  - It shells out to an external executable selected by the user for:
+    - COLMAP
+    - Metashape
+    - RealityScan
+  - Relevant upstream files:
+    - `core/runner.py`
+    - `core/colmap_processor.py`
+
+## 2026-03-26 deployment / packaging conclusions so far
+
+- Recommended long-term split:
+  - keep LichtFeld Studio runtime/training in one container
+  - keep reconstruction/preprocessing as a separate tool or container
+  - use the COLMAP dataset layout as the interface between them
+- Reason:
+  - reconstruction is likely to change over time
+  - user wants the option to move away from COLMAP later
+  - this keeps the main LichtFeld image smaller and less coupled to one preprocessing stack
+- Caveat:
+  - if using `SplatReady` inside LichtFeld for one-click reconstruction, the reconstruction executable must still be callable from inside the running LichtFeld environment
+
+## 2026-03-26 plugin path problem to fix next
+
+- The plugin install/discovery location is currently hard-coded to:
+  `~/.lichtfeld/plugins`
+- This is hard-coded in both:
+  - `src/python/lfs_plugins/manager.py`
+  - `src/python/plugin_runner.cpp`
+- Plugin dependency environments are also created inside each plugin directory as:
+  `.venv`
+- This is a problem for studio-wide deployment if plugins live in a read-only shared location.
+- Likely next engineering task:
+  - add support for `LICHTFELD_HOME` and/or `LICHTFELD_PLUGINS_DIR`
+  - decide whether plugin virtualenvs should live:
+    - next to the plugin
+    - or in a separate writable per-user/state directory
