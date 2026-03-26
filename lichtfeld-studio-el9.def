@@ -126,6 +126,7 @@ From: rockylinux:9
         -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
         -DCMAKE_CUDA_HOST_COMPILER="${GCC_TOOLSET_ROOT}/bin/g++" \
         -DCMAKE_CUDA_ARCHITECTURES=86 \
+        -DBUILD_PYTHON_STUBS=OFF \
         -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake
 
     cmake --build /opt/LichtFeld-Studio/build --parallel "$(nproc)"
