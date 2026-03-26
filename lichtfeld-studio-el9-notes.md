@@ -84,6 +84,21 @@
   - The EL9 recipe now installs `xdg-utils`.
   - `%test` and CI now assert that `xdg-open` is present.
 
+## 2026-03-26 native file dialog DBus fix
+
+- What worked:
+  - Binding the host user runtime directory into the container and restoring the session-bus env was enough to make the portal reachable:
+    `apptainer exec --cleanenv --bind /run/user/247422:/run/user/247422 --env DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/247422/bus --env XDG_RUNTIME_DIR=/run/user/247422 ... dbus-send --session --dest=org.freedesktop.portal.Desktop ... org.freedesktop.DBus.Peer.Ping`
+  - Inspecting `libnfd.a` showed this build is using the Freedesktop portal backend, not a separate GTK or zenity fallback.
+- What failed:
+  - Native file dialogs logged:
+    `Failed to initialize native file dialogs: Using X11 for dbus-daemon autolaunch was disabled at compile time, set your DBUS_SESSION_BUS_ADDRESS instead`
+  - `apptainer run --cleanenv` strips `DBUS_SESSION_BUS_ADDRESS` and `XDG_RUNTIME_DIR`, and Apptainer did not expose `/run/user/$UID/bus` inside the container by default.
+- What changed to fix it:
+  - The EL9 recipe now auto-detects `/run/user/$UID` and exports `XDG_RUNTIME_DIR` plus `DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$UID/bus` when available.
+  - The documented run command now binds `/run/user/$UID:/run/user/$UID`, which gives the container access to the host desktop portal over the real session bus.
+  - CI now checks that the generated environment script includes the DBus fallback logic.
+
 ## Next rebuild expectations
 
 - The image should launch the build-tree binary by default until upstream install rules place all required runtime libs into the install prefix.

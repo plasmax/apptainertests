@@ -65,6 +65,7 @@ jobs:
           apptainer exec lichtfeld_studio_el9.sif sh -c 'test -e /opt/lichtfeld/lib64/liblfs_rmlui.so -o -e /opt/lichtfeld/lib/liblfs_rmlui.so'
           apptainer exec lichtfeld_studio_el9.sif sh -c 'test -d /opt/lichtfeld/lib/python/lfs_plugins && find /opt/lichtfeld/lib/python -maxdepth 1 -name "lichtfeld*.so" | grep -q .'
           apptainer exec lichtfeld_studio_el9.sif sh -c 'command -v xdg-open >/dev/null'
+          apptainer exec lichtfeld_studio_el9.sif sh -c 'grep -q "DBUS_SESSION_BUS_ADDRESS" /.singularity.d/env/90-environment.sh && grep -q "/run/user/" /.singularity.d/env/90-environment.sh'
           apptainer exec lichtfeld_studio_el9.sif sh -c 'ar t /opt/LichtFeld-Studio/build/vcpkg_installed/x64-linux/lib/libSDL3.a | grep -Eq "x11|wayland"'
 
       - name: Upload SIF artifact

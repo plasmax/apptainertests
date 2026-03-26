@@ -10,15 +10,29 @@ From: rockylinux:9
     export LD_LIBRARY_PATH=${GCC_TOOLSET_ROOT}/lib64:/opt/lichtfeld/lib64:/opt/lichtfeld/lib:/opt/LichtFeld-Studio/build/vcpkg_installed/x64-linux/lib:/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}
     export VCPKG_ROOT=/opt/vcpkg
     export QT_X11_NO_MITSHM=1
+    # Recover the host user bus under --cleanenv when /run/user/$UID is bound in.
+    uid="$(id -u)"
+    if [ -z "${XDG_RUNTIME_DIR:-}" ] && [ -d "/run/user/${uid}" ]; then
+        export XDG_RUNTIME_DIR=/run/user/${uid}
+    fi
+    if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+        runtime_dir="${XDG_RUNTIME_DIR:-/run/user/${uid}}"
+        if [ -S "${runtime_dir}/bus" ]; then
+            export DBUS_SESSION_BUS_ADDRESS=unix:path=${runtime_dir}/bus
+        fi
+    fi
 
 
 %help
     Run with NVIDIA + X11 passthrough, for example:
+      uid=$(id -u)
       apptainer run --cleanenv --nv \
         --bind /tmp/.X11-unix:/tmp/.X11-unix \
+        --bind /run/user/${uid}:/run/user/${uid} \
         --bind ${HOME}/.Xauthority:${HOME}/.Xauthority \
         --env DISPLAY=${DISPLAY} \
         --env XAUTHORITY=${HOME}/.Xauthority \
+        --env SDL_VIDEODRIVER=x11 \
         lichtfeld_studio_el9.sif
 
 %post
@@ -170,6 +184,16 @@ From: rockylinux:9
     export QT_X11_NO_MITSHM=${QT_X11_NO_MITSHM:-1}
     export GCC_TOOLSET_ROOT=${GCC_TOOLSET_ROOT:-/opt/rh/gcc-toolset-14/root/usr}
     export LD_LIBRARY_PATH=${GCC_TOOLSET_ROOT}/lib64:/opt/lichtfeld/lib64:/opt/lichtfeld/lib:/opt/LichtFeld-Studio/build/vcpkg_installed/x64-linux/lib:/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}
+    uid="$(id -u)"
+    if [ -z "${XDG_RUNTIME_DIR:-}" ] && [ -d "/run/user/${uid}" ]; then
+        export XDG_RUNTIME_DIR=/run/user/${uid}
+    fi
+    if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+        runtime_dir="${XDG_RUNTIME_DIR:-/run/user/${uid}}"
+        if [ -S "${runtime_dir}/bus" ]; then
+            export DBUS_SESSION_BUS_ADDRESS=unix:path=${runtime_dir}/bus
+        fi
+    fi
     exec /opt/lichtfeld/bin/LichtFeld-Studio "$@"
 
 %test
