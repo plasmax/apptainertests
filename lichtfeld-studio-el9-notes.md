@@ -1,0 +1,198 @@
+# LichtFeld Studio EL9 Notes
+
+## 2026-03-26 local build findings
+
+- Local Apptainer build completed and produced a SIF, but the first runtime test on an NVIDIA/X11 host still failed.
+- What failed:
+  - The installed runtime tree was incomplete. `liblfs_rmlui.so` existed in `/opt/LichtFeld-Studio/build` but not under `/opt/lichtfeld`, and the image environment pointed at `/opt/lichtfeld/lib` instead of `/opt/lichtfeld/lib64`.
+  - The bundled SDL archive had no GUI backends. `ar t /opt/LichtFeld-Studio/build/vcpkg_installed/x64-linux/lib/libSDL3.a` only showed:
+    - `SDL_video.c.o`
+    - `SDL_video_unsupported.c.o`
+    - `SDL_nullvideo.c.o`
+    - `SDL_offscreenvideo.c.o`
+  - On the offline test host, forcing `SDL_VIDEODRIVER=x11` still failed with `Failed to initialize SDL: x11 not available`.
+- What worked:
+  - Running the build-tree executable inside the image got far enough to prove CUDA init, config loading, and app startup were otherwise working:
+    `/opt/LichtFeld-Studio/build/LichtFeld-Studio`
+  - X11 socket and auth on the host were valid; the failure was inside the image, not host access control.
+
+## Why the SDL backend was missing
+
+- `vcpkg` restored `sdl3[core,ibus,wayland,x11]`, but the resulting static archive still lacked X11/Wayland objects.
+- `/opt/vcpkg/ports/sdl3/portfile.cmake` warns that Linux builds need extra system development packages:
+  - X11: `libx11-dev`, `libxft-dev`, `libxext-dev`
+  - Wayland: `libwayland-dev`, `libxkbcommon-dev`, `libegl1-mesa-dev`
+  - IBus: `libibus-1.0-dev`
+- SDL's actual configure step on EL9 also hard-failed later on `XTEST`, so the recipe needs the wider desktop header set, not just the three packages mentioned in the port warning.
+
+## 2026-03-26 interactive sandbox repair
+
+- What worked:
+  - Converting the last SIF into a writable sandbox with `apptainer build --sandbox` made it possible to repair the image incrementally instead of restarting a full build.
+  - `vcpkg remove --classic --recurse sdl3 imgui` followed by a manifest reinstall rebuilt only `sdl3`, `imgui`, and `implot`.
+  - After the rebuild, `ar t /opt/LichtFeld-Studio/build/vcpkg_installed/x64-linux/lib/libSDL3.a` showed both `SDL_x11*.o` and `SDL_wayland*.o`, including `SDL_x11xtest.c.o`.
+  - `cmake --build` and `cmake --install` both completed successfully once SDL rebuilt cleanly.
+- What failed:
+  - Deleting `libSDL3.a` and the `sdl3_*.list` files was not enough. `vcpkg install` still said `All requested installations completed successfully`, and CMake later failed because `SDL3Config.cmake` was missing.
+  - The first real SDL configure failure was:
+    `Couldn't find dependency package for XTEST. Please install the needed packages or configure with -DSDL_X11_XTEST=OFF`
+  - A headless runtime probe in the sandbox still stops at:
+    `libcuda.so.1: cannot open shared object file: No such file or directory`
+    so GUI launch must still be rechecked on a host run with `--nv`.
+- What changed to fix it:
+  - The EL9 recipe now includes the wider SDL desktop dependency set:
+    `libXext-devel`, `libXft-devel`, `libXrender-devel`, `libXrandr-devel`, `libXinerama-devel`, `libXcursor-devel`, `libXi-devel`, `libXfixes-devel`, `libXScrnSaver-devel`, `libXtst-devel`, `wayland-devel`, `libxkbcommon-devel`, `ibus-devel`, `libxcb-devel`, `xcb-util-devel`, `xcb-util-image-devel`, `xcb-util-keysyms-devel`, `xcb-util-renderutil-devel`, `xcb-util-wm-devel`.
+  - The recipe now copies `liblfs_rmlui.so` into `/opt/lichtfeld/lib64` after `cmake --install`.
+  - The image tests and CI smoke test now explicitly check for the copied `liblfs_rmlui.so` and for desktop SDL backends in `libSDL3.a`.
+
+## 2026-03-26 runtime metadata mismatch
+
+- What worked:
+  - Inspecting the repaired interactive SIF immediately explained the loader error without another full launch attempt.
+- What failed:
+  - The repacked interactive SIF inherited stale metadata from the original SIF-to-sandbox conversion.
+  - `apptainer inspect -r` showed the embedded runscript was still:
+    `exec /opt/lichtfeld/bin/LichtFeld-Studio "$@"`
+  - The embedded environment in `/.singularity.d/env/90-environment.sh` still had:
+    `LD_LIBRARY_PATH=${GCC_TOOLSET_ROOT}/lib64:/opt/lichtfeld/lib:/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}`
+    which omitted `/opt/lichtfeld/lib64`, so `liblfs_mcp.so` could not be found.
+- What changed to fix it:
+  - The recipe now sets an explicit install `RUNPATH` for the installed binary, including `\$ORIGIN/../lib64`, the GCC toolset runtime, the vcpkg runtime tree, and CUDA libs.
+  - The runtime environment now includes `/opt/lichtfeld/lib64`.
+  - `%test` and CI now run `ldd` on `/opt/lichtfeld/bin/LichtFeld-Studio` under `env -i` so this exact regression fails fast.
+
+## 2026-03-26 missing Python UI bridge
+
+- What worked:
+  - The GUI launched once SDL and the runtime loader issues were fixed, which narrowed the remaining problem to the Python/plugin layer.
+- What failed:
+  - Startup logged:
+    `Python module 'lichtfeld' not found. Expected a lichtfeld*.so/.pyd in: /opt/lichtfeld/bin/src/python, /opt/lichtfeld/bin`
+  - The image actually installed the module and plugin package under:
+    `/opt/lichtfeld/lib64/python/lichtfeld.cpython-312-x86_64-linux-gnu.so`
+    `/opt/lichtfeld/lib64/python/lfs_plugins/...`
+  - Upstream runtime path resolution only checks `../lib/python` relative to the executable, not `../lib64/python`.
+- What changed to fix it:
+  - The EL9 recipe now creates `/opt/lichtfeld/lib/python -> ../lib64/python` after install.
+  - `%test` and CI now assert that `/opt/lichtfeld/lib/python` exposes both the `lichtfeld*.so` module and the `lfs_plugins` package.
+
+## 2026-03-26 minor desktop integration fix
+
+- What failed:
+  - Clicking a URL from the UI hit `sh: line 1: xdg-open: command not found`.
+- What changed to fix it:
+  - The EL9 recipe now installs `xdg-utils`.
+  - `%test` and CI now assert that `xdg-open` is present.
+
+## 2026-03-26 native file dialog DBus fix
+
+- What worked:
+  - Binding the host user runtime directory into the container and restoring the session-bus env was enough to make the portal reachable:
+    `apptainer exec --cleanenv --bind /run/user/247422:/run/user/247422 --env DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/247422/bus --env XDG_RUNTIME_DIR=/run/user/247422 ... dbus-send --session --dest=org.freedesktop.portal.Desktop ... org.freedesktop.DBus.Peer.Ping`
+  - Inspecting `libnfd.a` showed this build is using the Freedesktop portal backend, not a separate GTK or zenity fallback.
+- What failed:
+  - Native file dialogs logged:
+    `Failed to initialize native file dialogs: Using X11 for dbus-daemon autolaunch was disabled at compile time, set your DBUS_SESSION_BUS_ADDRESS instead`
+  - `apptainer run --cleanenv` strips `DBUS_SESSION_BUS_ADDRESS` and `XDG_RUNTIME_DIR`, and Apptainer did not expose `/run/user/$UID/bus` inside the container by default.
+- What changed to fix it:
+  - The EL9 recipe now auto-detects `/run/user/$UID` and exports `XDG_RUNTIME_DIR` plus `DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$UID/bus` when available.
+  - The documented run command now binds `/run/user/$UID:/run/user/$UID`, which gives the container access to the host desktop portal over the real session bus.
+  - CI now checks that the generated environment script includes the DBus fallback logic.
+
+## Next rebuild expectations
+
+- The image should launch the build-tree binary by default until upstream install rules place all required runtime libs into the install prefix.
+- CI smoke testing should validate:
+  - the executable exists
+  - `ldd` succeeds
+  - the SDL archive contains at least one desktop video backend object (`x11` or `wayland`)
+
+## Separate runtime warning observed
+
+- The offline test host reported `CUDA 12.4 unsupported. Requires 12.8+ (driver 570+)`.
+- That is a host driver/runtime issue, not the container build failure, but it may still limit features after the GUI issue is fixed.
+
+## 2026-03-26 handoff notes for next session
+
+- Current known-good interactive image:
+  `/net/code/workspaces/mlast/lichtfeld_studio_el9_interactive_v5.sif`
+- User confirmed:
+  - GUI loads
+  - buttons are visible
+  - native file dialogs now work
+  - training a Gaussian splat from an existing COLMAP dataset is working
+- Known working launch pattern:
+
+```bash
+uid=$(id -u)
+apptainer run --cleanenv --nv \
+  --bind /tmp/.X11-unix:/tmp/.X11-unix \
+  --bind /run/user/${uid}:/run/user/${uid} \
+  --bind "$HOME/.Xauthority:$HOME/.Xauthority" \
+  --bind /mnt/scratch:/mnt/scratch \
+  --env DISPLAY="$DISPLAY" \
+  --env XAUTHORITY="$HOME/.Xauthority" \
+  --env SDL_VIDEODRIVER=x11 \
+  /net/code/workspaces/mlast/lichtfeld_studio_el9_interactive_v5.sif
+```
+
+- Bind note:
+  - `--bind /mnt/scratch:/mnt/scratch` was needed for dataset access during training.
+  - `--bind /mnt:/mnt` would probably also work, but it is broader than needed.
+
+## 2026-03-26 workflow status
+
+- GitHub Actions build retries were removed to avoid 2+ hour reruns hiding the real failure.
+- Commit:
+  `ec69ccd` (`Remove GitHub Actions build retries`)
+- Branch:
+  `codex/set-up-github-actions-for-apptainer-build-z6kkc0`
+- Important:
+  - Any GitHub Actions run that started before commit `ec69ccd` still uses the old retrying workflow and may need to be cancelled manually.
+
+## 2026-03-26 COLMAP and plugin findings
+
+- LichtFeld can train directly from a COLMAP dataset without any plugin.
+  - Relevant files:
+    - `src/training/training_setup.cpp`
+    - `docs/docs/development/mcp/recipes/load-dataset-and-train.md`
+- Plugins are not required for core Gaussian splat training from COLMAP.
+- `SplatReady` is a workflow plugin that converts video to a COLMAP-ready dataset, then imports it into LichtFeld.
+  - Repo:
+    `https://github.com/jacobvanbeets/SplatReady`
+  - It shells out to an external executable selected by the user for:
+    - COLMAP
+    - Metashape
+    - RealityScan
+  - Relevant upstream files:
+    - `core/runner.py`
+    - `core/colmap_processor.py`
+
+## 2026-03-26 deployment / packaging conclusions so far
+
+- Recommended long-term split:
+  - keep LichtFeld Studio runtime/training in one container
+  - keep reconstruction/preprocessing as a separate tool or container
+  - use the COLMAP dataset layout as the interface between them
+- Reason:
+  - reconstruction is likely to change over time
+  - user wants the option to move away from COLMAP later
+  - this keeps the main LichtFeld image smaller and less coupled to one preprocessing stack
+- Caveat:
+  - if using `SplatReady` inside LichtFeld for one-click reconstruction, the reconstruction executable must still be callable from inside the running LichtFeld environment
+
+## 2026-03-26 plugin path problem to fix next
+
+- The plugin install/discovery location is currently hard-coded to:
+  `~/.lichtfeld/plugins`
+- This is hard-coded in both:
+  - `src/python/lfs_plugins/manager.py`
+  - `src/python/plugin_runner.cpp`
+- Plugin dependency environments are also created inside each plugin directory as:
+  `.venv`
+- This is a problem for studio-wide deployment if plugins live in a read-only shared location.
+- Likely next engineering task:
+  - add support for `LICHTFELD_HOME` and/or `LICHTFELD_PLUGINS_DIR`
+  - decide whether plugin virtualenvs should live:
+    - next to the plugin
+    - or in a separate writable per-user/state directory
