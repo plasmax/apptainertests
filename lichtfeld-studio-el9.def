@@ -5,8 +5,9 @@ From: rockylinux:9
     Description EL9 Apptainer image for LichtFeld Studio built from source with vcpkg
 
 %environment
-    export PATH=/opt/lichtfeld/bin:/usr/local/cuda/bin:$PATH
-    export LD_LIBRARY_PATH=/opt/lichtfeld/lib:/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}
+    export GCC_TOOLSET_ROOT=/opt/rh/gcc-toolset-14/root/usr
+    export PATH=${GCC_TOOLSET_ROOT}/bin:/opt/lichtfeld/bin:/usr/local/cuda/bin:$PATH
+    export LD_LIBRARY_PATH=${GCC_TOOLSET_ROOT}/lib64:/opt/lichtfeld/lib:/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}
     export VCPKG_ROOT=/opt/vcpkg
     export QT_X11_NO_MITSHM=1
 
@@ -33,10 +34,16 @@ From: rockylinux:9
     dnf -y install \
         gcc \
         gcc-c++ \
+        gcc-toolset-14-gcc \
+        gcc-toolset-14-gcc-c++ \
+        gcc-toolset-14-gcc-gfortran \
         make \
-        cmake \
+        nasm \
+        autoconf \
+        autoconf-archive \
+        automake \
+        libtool \
         git \
-        curl \
         zip \
         unzip \
         tar \
@@ -47,7 +54,11 @@ From: rockylinux:9
         which \
         file \
         mesa-libGL \
+        mesa-libGL-devel \
+        mesa-libGLU-devel \
         mesa-libEGL \
+        mesa-libEGL-devel \
+        libglvnd-devel \
         libX11 \
         libXext \
         libXrandr \
@@ -68,11 +79,40 @@ From: rockylinux:9
     if ! dnf -y install ninja-build; then
         dnf -y install ninja
     fi
+    if ! command -v ninja >/dev/null 2>&1 && command -v ninja-build >/dev/null 2>&1; then
+        ln -sf "$(command -v ninja-build)" /usr/local/bin/ninja
+    fi
+
+    export GCC_TOOLSET_ROOT=/opt/rh/gcc-toolset-14/root/usr
+    export PATH="${GCC_TOOLSET_ROOT}/bin:/usr/local/bin:/usr/local/cuda/bin:$PATH"
+    export LD_LIBRARY_PATH="${GCC_TOOLSET_ROOT}/lib64:${LD_LIBRARY_PATH:-}"
+    export CC="${GCC_TOOLSET_ROOT}/bin/gcc"
+    export CXX="${GCC_TOOLSET_ROOT}/bin/g++"
+    export FC="${GCC_TOOLSET_ROOT}/bin/gfortran"
+    export CUDAHOSTCXX="${GCC_TOOLSET_ROOT}/bin/g++"
+
+    curl -fsSL https://ftp.gnu.org/gnu/autoconf/autoconf-2.71.tar.gz -o /var/tmp/autoconf-2.71.tar.gz
+    tar -xf /var/tmp/autoconf-2.71.tar.gz -C /var/tmp
+    cd /var/tmp/autoconf-2.71
+    ./configure --prefix=/usr/local
+    make -j"$(nproc)"
+    make install
+    cd /
+    rm -rf /var/tmp/autoconf-2.71 /var/tmp/autoconf-2.71.tar.gz
+    export PATH="${GCC_TOOLSET_ROOT}/bin:/usr/local/bin:/usr/local/cuda/bin:$PATH"
+
+    python3 -m pip install --no-cache-dir "cmake>=3.30,<4"
 
     dnf clean all
     rm -rf /var/cache/dnf
 
-    git clone --depth 1 https://github.com/microsoft/vcpkg.git /opt/vcpkg
+    git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg
+    if [ -n "${VCPKG_DOWNLOADS:-}" ]; then
+        mkdir -p "$VCPKG_DOWNLOADS"
+    fi
+    if [ -n "${VCPKG_DEFAULT_BINARY_CACHE:-}" ]; then
+        mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
+    fi
     /opt/vcpkg/bootstrap-vcpkg.sh -disableMetrics
 
     git clone --depth 1 --recursive https://github.com/MrNeRF/LichtFeld-Studio /opt/LichtFeld-Studio
@@ -81,6 +121,11 @@ From: rockylinux:9
     cmake -S /opt/LichtFeld-Studio -B /opt/LichtFeld-Studio/build \
         -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_C_COMPILER="${GCC_TOOLSET_ROOT}/bin/gcc" \
+        -DCMAKE_CXX_COMPILER="${GCC_TOOLSET_ROOT}/bin/g++" \
+        -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
+        -DCMAKE_CUDA_HOST_COMPILER="${GCC_TOOLSET_ROOT}/bin/g++" \
+        -DCMAKE_CUDA_ARCHITECTURES=86 \
         -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake
 
     cmake --build /opt/LichtFeld-Studio/build --parallel "$(nproc)"
