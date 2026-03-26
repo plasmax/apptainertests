@@ -27,34 +27,14 @@ jobs:
           sudo apt-get clean
           df -h
 
-      - name: Build SIF (with retries)
+      - name: Build SIF
         env:
           APPTAINER_TMPDIR: ${{ runner.temp }}/apptainer-tmp
           APPTAINER_CACHEDIR: ${{ runner.temp }}/apptainer-cache
         run: |
           mkdir -p "$APPTAINER_TMPDIR" "$APPTAINER_CACHEDIR"
           apptainer --version
-
-          # Retry build to tolerate transient registry/network failures.
-          attempt=1
-          max_attempts=3
-          until [ "$attempt" -gt "$max_attempts" ]; do
-            echo "Build attempt ${attempt}/${max_attempts}"
-            if sudo -E apptainer build lichtfeld_studio_el9.sif lichtfeld-studio-el9.def; then
-              echo "Apptainer build succeeded on attempt $attempt"
-              break
-            fi
-
-            if [ "$attempt" -eq "$max_attempts" ]; then
-              echo "Apptainer build failed after ${max_attempts} attempts"
-              exit 1
-            fi
-
-            echo "Build attempt $attempt failed; cleaning cache and retrying after backoff..."
-            rm -rf "$APPTAINER_CACHEDIR"/* "$APPTAINER_TMPDIR"/* || true
-            sleep $((attempt * 45))
-            attempt=$((attempt + 1))
-          done
+          sudo -E apptainer build lichtfeld_studio_el9.sif lichtfeld-studio-el9.def
 
       - name: Smoke test image
         run: |
