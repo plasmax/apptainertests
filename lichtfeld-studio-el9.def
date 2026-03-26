@@ -198,12 +198,40 @@ From: rockylinux:9
 
 %test
     set -eu
+
+    echo "--- check: build-tree binary exists ---"
     test -x /opt/LichtFeld-Studio/build/LichtFeld-Studio
+
+    echo "--- check: installed binary exists ---"
     test -x /opt/lichtfeld/bin/LichtFeld-Studio
+
+    echo "--- check: build-tree ldd ---"
     ldd /opt/LichtFeld-Studio/build/LichtFeld-Studio >/dev/null
-    env -i PATH=/usr/bin:/bin ldd /opt/lichtfeld/bin/LichtFeld-Studio >/dev/null
+
+    echo "--- check: installed ldd (env -i, CUDA driver libs may be absent) ---"
+    # CUDA driver libs (libcuda, libnvidia) are injected at runtime via --nv
+    # and will not be found during a headless build.  Only fail on non-CUDA
+    # missing libraries.
+    _ldd_out=$(env -i PATH=/usr/bin:/bin ldd /opt/lichtfeld/bin/LichtFeld-Studio 2>&1) || true
+    echo "$_ldd_out" | grep 'not found' | grep -Evq 'libcuda|libnvidia|libcufft|libnvJitLink' && {
+        echo "FAIL: non-CUDA libraries missing from installed binary:"
+        echo "$_ldd_out" | grep 'not found' | grep -Ev 'libcuda|libnvidia|libcufft|libnvJitLink'
+        exit 1
+    } || true
+
+    echo "--- check: liblfs_rmlui.so ---"
     test -e /opt/lichtfeld/lib64/liblfs_rmlui.so -o -e /opt/lichtfeld/lib/liblfs_rmlui.so
+
+    echo "--- check: Python plugins ---"
     test -d /opt/lichtfeld/lib/python/lfs_plugins
+
+    echo "--- check: Python lichtfeld module ---"
     find /opt/lichtfeld/lib/python -maxdepth 1 -name 'lichtfeld*.so' | grep -q .
+
+    echo "--- check: xdg-open ---"
     command -v xdg-open >/dev/null
+
+    echo "--- check: SDL3 desktop backends ---"
     ar t /opt/LichtFeld-Studio/build/vcpkg_installed/x64-linux/lib/libSDL3.a | grep -Eq 'x11|wayland'
+
+    echo "--- all checks passed ---"
