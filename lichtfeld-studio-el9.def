@@ -7,18 +7,19 @@ From: rockylinux:9
 %environment
     export GCC_TOOLSET_ROOT=/opt/rh/gcc-toolset-14/root/usr
     export PATH=${GCC_TOOLSET_ROOT}/bin:/opt/lichtfeld/bin:/usr/local/cuda/bin:$PATH
-    export LD_LIBRARY_PATH=${GCC_TOOLSET_ROOT}/lib64:/opt/lichtfeld/lib:/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}
+    # Upstream install misses some runtime libs, so keep the build tree on the runtime search path.
+    export LD_LIBRARY_PATH=${GCC_TOOLSET_ROOT}/lib64:/opt/LichtFeld-Studio/build:/opt/lichtfeld/lib64:/opt/lichtfeld/lib:/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}
     export VCPKG_ROOT=/opt/vcpkg
     export QT_X11_NO_MITSHM=1
 
 
 %help
     Run with NVIDIA + X11 passthrough, for example:
-      apptainer run --nv \
+      apptainer run --cleanenv --nv \
         --bind /tmp/.X11-unix:/tmp/.X11-unix \
-        --bind /run/user/$(id -u):/run/user/$(id -u) \
+        --bind ${HOME}/.Xauthority:${HOME}/.Xauthority \
         --env DISPLAY=${DISPLAY} \
-        --env XDG_RUNTIME_DIR=/run/user/$(id -u) \
+        --env XAUTHORITY=${HOME}/.Xauthority \
         lichtfeld_studio_el9.sif
 
 %post
@@ -60,12 +61,21 @@ From: rockylinux:9
         mesa-libEGL-devel \
         libglvnd-devel \
         libX11 \
+        libX11-devel \
         libXext \
+        libXext-devel \
+        libXft \
+        libXft-devel \
         libXrandr \
         libXinerama \
         libXcursor \
         libXi \
+        wayland-devel \
+        wayland-protocols-devel \
+        ibus \
+        ibus-devel \
         libxkbcommon \
+        libxkbcommon-devel \
         libxcb \
         xcb-util \
         xcb-util-image \
@@ -132,13 +142,14 @@ From: rockylinux:9
     cmake --build /opt/LichtFeld-Studio/build --parallel "$(nproc)"
     cmake --install /opt/LichtFeld-Studio/build --prefix /opt/lichtfeld
 
-    ln -sf /opt/lichtfeld/bin/LichtFeld-Studio /usr/local/bin/lichtfeld-studio
+    ln -sf /opt/LichtFeld-Studio/build/LichtFeld-Studio /usr/local/bin/lichtfeld-studio
 
 %runscript
     export QT_X11_NO_MITSHM=${QT_X11_NO_MITSHM:-1}
-    exec /opt/lichtfeld/bin/LichtFeld-Studio "$@"
+    export LD_LIBRARY_PATH=/opt/LichtFeld-Studio/build:/opt/lichtfeld/lib64:/opt/lichtfeld/lib:${LD_LIBRARY_PATH:-}
+    exec /opt/LichtFeld-Studio/build/LichtFeld-Studio "$@"
 
 %test
     set -eu
-    test -x /opt/lichtfeld/bin/LichtFeld-Studio
-    ldd /opt/lichtfeld/bin/LichtFeld-Studio >/dev/null
+    test -x /opt/LichtFeld-Studio/build/LichtFeld-Studio
+    ldd /opt/LichtFeld-Studio/build/LichtFeld-Studio >/dev/null
