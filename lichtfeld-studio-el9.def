@@ -7,8 +7,7 @@ From: rockylinux:9
 %environment
     export GCC_TOOLSET_ROOT=/opt/rh/gcc-toolset-14/root/usr
     export PATH=${GCC_TOOLSET_ROOT}/bin:/opt/lichtfeld/bin:/usr/local/cuda/bin:$PATH
-    # Upstream install misses some runtime libs, so keep the build tree on the runtime search path.
-    export LD_LIBRARY_PATH=${GCC_TOOLSET_ROOT}/lib64:/opt/LichtFeld-Studio/build:/opt/lichtfeld/lib64:/opt/lichtfeld/lib:/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}
+    export LD_LIBRARY_PATH=${GCC_TOOLSET_ROOT}/lib64:/opt/lichtfeld/lib64:/opt/lichtfeld/lib:/opt/LichtFeld-Studio/build/vcpkg_installed/x64-linux/lib:/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}
     export VCPKG_ROOT=/opt/vcpkg
     export QT_X11_NO_MITSHM=1
 
@@ -54,6 +53,7 @@ From: rockylinux:9
         python3-pip \
         which \
         file \
+        xdg-utils \
         mesa-libGL \
         mesa-libGL-devel \
         mesa-libGLU-devel \
@@ -66,10 +66,18 @@ From: rockylinux:9
         libXext-devel \
         libXft \
         libXft-devel \
+        libXrender-devel \
         libXrandr \
+        libXrandr-devel \
         libXinerama \
+        libXinerama-devel \
         libXcursor \
+        libXcursor-devel \
         libXi \
+        libXi-devel \
+        libXfixes-devel \
+        libXScrnSaver-devel \
+        libXtst-devel \
         wayland-devel \
         wayland-protocols-devel \
         ibus \
@@ -77,11 +85,17 @@ From: rockylinux:9
         libxkbcommon \
         libxkbcommon-devel \
         libxcb \
+        libxcb-devel \
         xcb-util \
+        xcb-util-devel \
         xcb-util-image \
+        xcb-util-image-devel \
         xcb-util-keysyms \
+        xcb-util-keysyms-devel \
         xcb-util-renderutil \
+        xcb-util-renderutil-devel \
         xcb-util-wm \
+        xcb-util-wm-devel \
         cuda-toolkit-12-8
 
 
@@ -136,20 +150,36 @@ From: rockylinux:9
         -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
         -DCMAKE_CUDA_HOST_COMPILER="${GCC_TOOLSET_ROOT}/bin/g++" \
         -DCMAKE_CUDA_ARCHITECTURES=86 \
+        -DCMAKE_BUILD_RPATH="/opt/LichtFeld-Studio/build:/opt/rh/gcc-toolset-14/root/usr/lib64:/opt/LichtFeld-Studio/build/vcpkg_installed/x64-linux/lib:/usr/local/cuda/lib64:/usr/local/cuda-12.8/targets/x86_64-linux/lib" \
+        -DCMAKE_INSTALL_RPATH="\$ORIGIN:\$ORIGIN/../lib64:\$ORIGIN/../lib:/opt/rh/gcc-toolset-14/root/usr/lib64:/opt/LichtFeld-Studio/build/vcpkg_installed/x64-linux/lib:/usr/local/cuda/lib64:/usr/local/cuda-12.8/targets/x86_64-linux/lib" \
+        -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON \
         -DBUILD_PYTHON_STUBS=OFF \
         -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake
 
     cmake --build /opt/LichtFeld-Studio/build --parallel "$(nproc)"
     cmake --install /opt/LichtFeld-Studio/build --prefix /opt/lichtfeld
+    # Upstream install currently skips this runtime-loaded library.
+    install -Dpm755 /opt/LichtFeld-Studio/build/liblfs_rmlui.so /opt/lichtfeld/lib64/liblfs_rmlui.so
+    # Upstream runtime search assumes ../lib/python, but EL9 installs to lib64/python.
+    mkdir -p /opt/lichtfeld/lib
+    ln -sfn ../lib64/python /opt/lichtfeld/lib/python
 
     ln -sf /opt/LichtFeld-Studio/build/LichtFeld-Studio /usr/local/bin/lichtfeld-studio
 
 %runscript
     export QT_X11_NO_MITSHM=${QT_X11_NO_MITSHM:-1}
-    export LD_LIBRARY_PATH=/opt/LichtFeld-Studio/build:/opt/lichtfeld/lib64:/opt/lichtfeld/lib:${LD_LIBRARY_PATH:-}
-    exec /opt/LichtFeld-Studio/build/LichtFeld-Studio "$@"
+    export GCC_TOOLSET_ROOT=${GCC_TOOLSET_ROOT:-/opt/rh/gcc-toolset-14/root/usr}
+    export LD_LIBRARY_PATH=${GCC_TOOLSET_ROOT}/lib64:/opt/lichtfeld/lib64:/opt/lichtfeld/lib:/opt/LichtFeld-Studio/build/vcpkg_installed/x64-linux/lib:/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}
+    exec /opt/lichtfeld/bin/LichtFeld-Studio "$@"
 
 %test
     set -eu
     test -x /opt/LichtFeld-Studio/build/LichtFeld-Studio
+    test -x /opt/lichtfeld/bin/LichtFeld-Studio
     ldd /opt/LichtFeld-Studio/build/LichtFeld-Studio >/dev/null
+    env -i PATH=/usr/bin:/bin ldd /opt/lichtfeld/bin/LichtFeld-Studio >/dev/null
+    test -e /opt/lichtfeld/lib64/liblfs_rmlui.so -o -e /opt/lichtfeld/lib/liblfs_rmlui.so
+    test -d /opt/lichtfeld/lib/python/lfs_plugins
+    find /opt/lichtfeld/lib/python -maxdepth 1 -name 'lichtfeld*.so' | grep -q .
+    command -v xdg-open >/dev/null
+    ar t /opt/LichtFeld-Studio/build/vcpkg_installed/x64-linux/lib/libSDL3.a | grep -Eq 'x11|wayland'
