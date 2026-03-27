@@ -9,6 +9,7 @@ usage() {
     echo "  -h       Show this help message"
     echo
     echo "If a CUDA version is passed as a final positional argument (e.g. 12.8.0), it overrides auto-detection."
+    echo "Set CUDA_OS (default: ubuntu22.04) to choose the CUDA base image OS tag."
 }
 
 # --- Default: auto-detect CUDA version
@@ -21,6 +22,7 @@ fi
 
 # --- Flags
 COMPOSE_FILE="lichtfeld-studio-docker/docker-compose.yml"
+CUDA_OS="${CUDA_OS:-ubuntu22.04}"
 BUILD=false
 BUILD_ARGS=""
 COMPOSEUP=false
@@ -45,6 +47,7 @@ if [[ $# -gt 0 ]]; then
 fi
 
 echo "Using CUDA version: $CUDA_VERSION"
+echo "Using CUDA OS tag: $CUDA_OS"
 
 # --- Export env vars for docker-compose
 export USER_UID=$(id -u)
@@ -57,6 +60,7 @@ export DISPLAY=$DISPLAY
 export XAUTHORITY=$XAUTHORITY
 export SSH_AUTH_SOCK=$SSH_AUTH_SOCK
 export CUDA_VERSION
+export CUDA_OS
 
 # --- Build step
 if [ "$BUILD" = true ]; then
