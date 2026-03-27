@@ -1,5 +1,6 @@
 ARG CUDA_VERSION
-FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu24.04
+ARG CUDA_OS=ubuntu22.04
+FROM nvidia/cuda:${CUDA_VERSION}-devel-${CUDA_OS}
 
 ENV DEBIAN_FRONTEND=noninteractive
 
