@@ -1,0 +1,28 @@
+Bootstrap: docker
+From: plasmax7/lichtfeld-studio:latest
+
+%labels
+    Description Lightweight Apptainer image wrapping DockerHub plasmax7/lichtfeld-studio:latest
+
+%help
+    Development shell image for LichtFeld Studio based on DockerHub build.
+    Example:
+      apptainer shell --nv lichtfeld_studio_docker.sif
+      apptainer run --nv lichtfeld_studio_docker.sif
+
+%post
+    set -eu
+
+    # Keep image setup minimal; upstream Docker image already provides toolchain.
+    mkdir -p /workspace
+
+%environment
+    export PROJECT_DIR=${PROJECT_DIR:-/home/${USER:-ubuntu}/projects/LichtFeld-Studio}
+
+%runscript
+    exec /bin/bash "$@"
+
+%test
+    set -eu
+    command -v python3 >/dev/null
+    command -v gcc >/dev/null
