@@ -2,27 +2,101 @@ Bootstrap: docker
 From: plasmax7/lichtfeld-studio:latest
 
 %labels
-    Description Lightweight Apptainer image wrapping DockerHub plasmax7/lichtfeld-studio:latest
+    Description Apptainer image for LichtFeld-Studio built from source on top of DockerHub base image
 
 %help
-    Development shell image for LichtFeld Studio based on DockerHub build.
-    Example:
-      apptainer shell --nv lichtfeld_studio_docker.sif
-      apptainer run --nv lichtfeld_studio_docker.sif
+    Build-time: compiles LichtFeld-Studio from source using vcpkg + Ninja.
+    Runtime: launches LichtFeld-Studio GUI directly.
+
+    Example launch (X11 + NVIDIA):
+      uid=$(id -u)
+      apptainer run --cleanenv --nv \
+        --bind /tmp/.X11-unix:/tmp/.X11-unix \
+        --bind /run/user/${uid}:/run/user/${uid} \
+        --bind ${HOME}/.Xauthority:${HOME}/.Xauthority \
+        --env DISPLAY=${DISPLAY} \
+        --env XAUTHORITY=${HOME}/.Xauthority \
+        --env SDL_VIDEODRIVER=x11 \
+        lichtfeld_studio.sif
+
+%environment
+    export QT_X11_NO_MITSHM=1
+    export VCPKG_ROOT=/opt/vcpkg
+    export PATH=/opt/lichtfeld/bin:${PATH}
+    export LD_LIBRARY_PATH=/opt/lichtfeld/lib64:/opt/lichtfeld/lib:/opt/LichtFeld-Studio/build/vcpkg_installed/x64-linux/lib:${LD_LIBRARY_PATH:-}
+
+    uid="$(id -u)"
+    if [ -z "${XDG_RUNTIME_DIR:-}" ] && [ -d "/run/user/${uid}" ]; then
+        export XDG_RUNTIME_DIR=/run/user/${uid}
+    fi
+    if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+        runtime_dir="${XDG_RUNTIME_DIR:-/run/user/${uid}}"
+        if [ -S "${runtime_dir}/bus" ]; then
+            export DBUS_SESSION_BUS_ADDRESS=unix:path=${runtime_dir}/bus
+        fi
+    fi
 
 %post
     set -eu
 
-    # Keep image setup minimal; upstream Docker image already provides toolchain.
-    mkdir -p /workspace
+    export DEBIAN_FRONTEND=noninteractive
 
-%environment
-    export PROJECT_DIR=${PROJECT_DIR:-/home/${USER:-ubuntu}/projects/LichtFeld-Studio}
+    # Ensure basic build tooling is present (base image should already have most of this).
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        git \
+        curl \
+        ninja-build \
+        pkg-config \
+        python3 \
+        python3-pip
+    rm -rf /var/lib/apt/lists/*
+
+    # Normalize ninja command name.
+    if ! command -v ninja >/dev/null 2>&1 && command -v ninja-build >/dev/null 2>&1; then
+        ln -sf "$(command -v ninja-build)" /usr/local/bin/ninja
+    fi
+
+    # vcpkg (fresh, deterministic location for Apptainer build)
+    git clone --depth 1 https://github.com/microsoft/vcpkg.git /opt/vcpkg
+    /opt/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+    export VCPKG_ROOT=/opt/vcpkg
+
+    # Source checkout + build
+    git clone --depth 1 --recursive https://github.com/MrNeRF/LichtFeld-Studio /opt/LichtFeld-Studio
+
+    cmake -S /opt/LichtFeld-Studio -B /opt/LichtFeld-Studio/build \
+        -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake \
+        -DBUILD_PYTHON_STUBS=OFF
+
+    cmake --build /opt/LichtFeld-Studio/build --parallel "$(nproc)"
+
+    # Install if upstream provides install target
+    mkdir -p /opt/lichtfeld
+    cmake --install /opt/LichtFeld-Studio/build --prefix /opt/lichtfeld || true
+
+    # Ensure a stable launcher path exists
+    mkdir -p /usr/local/bin /opt/lichtfeld/bin
+    if [ -x /opt/lichtfeld/bin/LichtFeld-Studio ]; then
+        ln -sf /opt/lichtfeld/bin/LichtFeld-Studio /usr/local/bin/lichtfeld-studio
+    elif [ -x /opt/LichtFeld-Studio/build/LichtFeld-Studio ]; then
+        ln -sf /opt/LichtFeld-Studio/build/LichtFeld-Studio /opt/lichtfeld/bin/LichtFeld-Studio
+        ln -sf /opt/LichtFeld-Studio/build/LichtFeld-Studio /usr/local/bin/lichtfeld-studio
+    else
+        echo "ERROR: LichtFeld-Studio binary was not produced by build." >&2
+        exit 1
+    fi
 
 %runscript
-    exec /bin/bash "$@"
+    export QT_X11_NO_MITSHM=${QT_X11_NO_MITSHM:-1}
+    exec /usr/local/bin/lichtfeld-studio "$@"
 
 %test
     set -eu
+    test -x /usr/local/bin/lichtfeld-studio
+    test -x /opt/lichtfeld/bin/LichtFeld-Studio
+    ldd /opt/lichtfeld/bin/LichtFeld-Studio >/dev/null
     command -v python3 >/dev/null
-    command -v gcc >/dev/null
