@@ -1,0 +1,27 @@
+Bootstrap: localimage
+From: stage1-base.sif
+
+%files
+    containers/requirements.txt /tmp/requirements.txt
+
+%labels
+    Author lichtfeld-studio
+    Stage stage2-python
+    Description Python base environment with pinned package set
+
+%help
+    Stage 2 installs pinned Python base dependencies.
+
+%post
+    set -eu
+    export DEBIAN_FRONTEND=noninteractive
+    export TZ=Etc/UTC
+    ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime && echo ${TZ} >/etc/timezone
+
+    echo "=== Stage 2: python base packages ==="
+    python3 -m pip install --no-cache-dir --upgrade pip
+    python3 -m pip install --no-cache-dir -r /tmp/requirements.txt
+
+%test
+    set -eu
+    python3 -c "import numpy; print(numpy.__version__)"

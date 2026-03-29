@@ -1,0 +1,32 @@
+Bootstrap: docker
+From: plasmax7/lichtfeld-studio:latest
+
+%labels
+    Author lichtfeld-studio
+    Stage stage1-base
+    Description Base OS + baseline system tools
+
+%help
+    Stage 1 base image for LichtFeld Studio staged Apptainer builds.
+    Contains baseline shell/build tools and OS runtime defaults.
+
+%post
+    set -eu
+    export DEBIAN_FRONTEND=noninteractive
+    export TZ=Etc/UTC
+    ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime && echo ${TZ} >/etc/timezone
+
+    echo "=== Stage 1: system tools ==="
+    apt-get update
+    apt-get install -y --no-install-recommends ca-certificates git ninja-build pkg-config python3 python3-pip
+    rm -rf /var/lib/apt/lists/*
+
+    if ! command -v ninja >/dev/null 2>&1 && command -v ninja-build >/dev/null 2>&1; then
+        ln -sf "$(command -v ninja-build)" /usr/local/bin/ninja
+    fi
+
+%test
+    set -eu
+    command -v python3 >/dev/null
+    command -v pip3 >/dev/null
+    command -v gcc >/dev/null

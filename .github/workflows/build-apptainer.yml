@@ -1,0 +1,228 @@
+name: Build Lichtfeld Studio Container
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'containers/**'
+      - 'tests/**'
+      - 'scripts/preflight-check.sh'
+      - '.github/workflows/build-apptainer.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'containers/**'
+      - 'tests/**'
+      - 'scripts/preflight-check.sh'
+      - '.github/workflows/build-apptainer.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: write
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pre-flight validation
+        run: bash scripts/preflight-check.sh
+
+  stage1-base:
+    needs: [preflight]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          sudo apt-get clean
+          df -h
+      - uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: 1.3.6
+      - name: Compute hash
+        id: hash
+        run: echo "def_hash=$(sha256sum containers/stage1-base.def | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+      - name: Cache stage1
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: stage1-base.sif
+          key: stage1-base-${{ steps.hash.outputs.def_hash }}
+      - name: Build stage1
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: sudo apptainer build stage1-base.sif containers/stage1-base.def 2>&1 | tee stage1-build.log
+      - name: Test stage1
+        run: bash tests/test-stage1-base.sh
+      - name: Upload stage1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage1-base-artifacts
+          path: |
+            stage1-base.sif
+            stage1-build.log
+
+  stage2-python:
+    needs: [stage1-base]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          sudo apt-get clean
+      - uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: 1.3.6
+      - name: Compute hash
+        id: hash
+        run: |
+          combined=$(cat containers/stage1-base.def containers/stage2-python.def containers/requirements.txt | sha256sum | awk '{print $1}')
+          echo "def_hash=$combined" >> "$GITHUB_OUTPUT"
+      - name: Cache stage2
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: stage2-python.sif
+          key: stage2-python-${{ steps.hash.outputs.def_hash }}
+      - name: Download stage1
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: stage1-base-artifacts
+      - name: Build stage2
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: sudo apptainer build stage2-python.sif containers/stage2-python.def 2>&1 | tee stage2-build.log
+      - name: Test stage2
+        run: bash tests/test-stage2-python.sh
+      - name: Upload stage2 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage2-python-artifacts
+          path: |
+            stage2-python.sif
+            stage2-build.log
+
+  stage3-ml-libs:
+    needs: [stage2-python]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          sudo apt-get clean
+      - uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: 1.3.6
+      - name: Compute hash
+        id: hash
+        run: |
+          combined=$(cat containers/stage1-base.def containers/stage2-python.def containers/stage3-ml-libs.def containers/requirements.txt containers/requirements-ml.txt | sha256sum | awk '{print $1}')
+          echo "def_hash=$combined" >> "$GITHUB_OUTPUT"
+      - name: Cache stage3
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: stage3-ml-libs.sif
+          key: stage3-ml-libs-${{ steps.hash.outputs.def_hash }}
+      - name: Download stage2
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: stage2-python-artifacts
+      - name: Build stage3
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: sudo apptainer build stage3-ml-libs.sif containers/stage3-ml-libs.def 2>&1 | tee stage3-build.log
+      - name: Test stage3
+        run: bash tests/test-stage3-ml-libs.sh
+      - name: Upload stage3 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage3-ml-libs-artifacts
+          path: |
+            stage3-ml-libs.sif
+            stage3-build.log
+            actual-packages.txt
+
+  stage4-app:
+    needs: [stage3-ml-libs]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          sudo apt-get clean
+      - uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: 1.3.6
+      - name: Download stage3
+        uses: actions/download-artifact@v4
+        with:
+          name: stage3-ml-libs-artifacts
+      - name: Build stage4
+        run: sudo apptainer build stage4-app.sif containers/stage4-app.def 2>&1 | tee stage4-build.log
+      - name: Test stage4
+        run: bash tests/test-stage4-app.sh
+      - name: Upload final artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lichtfeld-studio-final-artifacts
+          path: |
+            stage4-app.sif
+            stage4-build.log
+
+  report-failure:
+    if: failure()
+    needs: [preflight, stage1-base, stage2-python, stage3-ml-libs, stage4-app]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build fallback summary
+        run: |
+          cat > failure-summary.md << 'TXT'
+          ## Build Failure Summary
+          **Stage:** See failed job in this workflow run.
+          **Error:** Staged Apptainer pipeline failed.
+          **Root cause:** Inspect stage-specific `*-build.log` artifacts.
+          **Suggested fix:** Re-run failed stage locally with `containers/build-all.sh` and inspect matching stage test script.
+          TXT
+      - name: Optional Gemini parse
+        if: ${{ secrets.GEMINI_API_KEY != '' }}
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          payload=$(jq -n --arg prompt "Summarize likely causes for a failed staged Apptainer build and next debug actions." '{contents:[{parts:[{text:$prompt}]}]}')
+          curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "$payload" | jq -r '.candidates[0].content.parts[0].text // empty' > gemini-summary.txt || true
+          if [ -s gemini-summary.txt ]; then
+            printf "\n\n### Gemini Notes\n\n" >> failure-summary.md
+            cat gemini-summary.txt >> failure-summary.md
+          fi
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('failure-summary.md', 'utf8');
+            const body = `${summary}\n\nRun: https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\n@${context.actor} please investigate.`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });

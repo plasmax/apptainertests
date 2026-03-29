@@ -32,7 +32,7 @@ jobs:
       - name: Smoke test build
         run: |
           docker build \
-            --build-arg CUDA_VERSION=12.4.1 \
+            --build-arg CUDA_VERSION=12.8.0 \
             --build-arg USER_UID=1000 \
             --build-arg USER_GID=1000 \
             --build-arg USERNAME=ubuntu \
@@ -50,7 +50,7 @@ jobs:
             plasmax7/lichtfeld-studio:latest
             plasmax7/lichtfeld-studio:${{ github.sha }}
           build-args: |
-            CUDA_VERSION=12.4.1
+            CUDA_VERSION=12.8.0
             USER_UID=1000
             USER_GID=1000
             USERNAME=ubuntu
