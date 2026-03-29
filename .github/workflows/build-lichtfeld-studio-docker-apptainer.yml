@@ -6,6 +6,14 @@ on:
     paths:
       - 'lichtfeld-studio-docker.def'
       - '.github/workflows/build-lichtfeld-studio-docker-apptainer.yml'
+  pull_request:
+    paths:
+      - 'lichtfeld-studio-docker.def'
+      - '.github/workflows/build-lichtfeld-studio-docker-apptainer.yml'
+
+permissions:
+  contents: read
+  pull-requests: write
 
 jobs:
   build:
@@ -56,3 +64,47 @@ jobs:
         with:
           name: lichtfeld_studio_docker_sif
           path: lichtfeld_studio_docker.sif
+
+      - name: Notify PR on failure (investigation requested)
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+            const mention = `@${context.actor}`;
+
+            let prNumber = context.payload.pull_request?.number;
+            if (!prNumber) {
+              const branch = context.ref.replace('refs/heads/', '');
+              const { data: prs } = await github.rest.pulls.list({
+                owner,
+                repo,
+                state: 'open',
+                head: `${owner}:${branch}`
+              });
+              if (prs.length > 0) {
+                prNumber = prs[0].number;
+              }
+            }
+
+            if (!prNumber) {
+              core.info('No open PR found for this failed run; skipping PR comment.');
+              return;
+            }
+
+            const body = [
+              `🚨 ${mention} build failed for **Build LichtFeld Studio (Docker-based Apptainer)**.`,
+              '',
+              `Please investigate this run: ${runUrl}`,
+              '',
+              'I uploaded `apptainer-build.log` as an artifact for debugging.'
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: prNumber,
+              body
+            });
