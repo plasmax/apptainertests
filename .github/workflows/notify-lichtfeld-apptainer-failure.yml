@@ -1,0 +1,83 @@
+name: Notify LichtFeld Apptainer PR failures
+
+on:
+  workflow_run:
+    workflows: ["Build LichtFeld Studio (Docker-based Apptainer)"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+
+jobs:
+  notify:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment failed run details on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const run = context.payload.workflow_run;
+            const runUrl = run.html_url;
+            const mention = `@${run.actor?.login || context.actor}`;
+
+            let prNumber = run.pull_requests?.[0]?.number;
+            if (!prNumber) {
+              const branch = run.head_branch;
+              if (branch) {
+                const { data: prs } = await github.rest.pulls.list({
+                  owner,
+                  repo,
+                  state: 'open',
+                  head: `${owner}:${branch}`
+                });
+                if (prs.length > 0) prNumber = prs[0].number;
+              }
+            }
+
+            if (!prNumber) {
+              core.info('No open PR associated with failed workflow run.');
+              return;
+            }
+
+            const { data: jobs } = await github.rest.actions.listJobsForWorkflowRun({
+              owner,
+              repo,
+              run_id: run.id,
+              per_page: 100
+            });
+
+            const failedJobs = jobs.jobs.filter(j => j.conclusion === 'failure');
+            const jobBullets = failedJobs.length
+              ? failedJobs.map(j => {
+                  const failedStep = (j.steps || []).find(s => s.conclusion === 'failure');
+                  const stepText = failedStep ? ` (step: ${failedStep.name})` : '';
+                  return `- ${j.name}${stepText}`;
+                }).join('\n')
+              : '- Build failed before a job reported a failed step (check workflow syntax/permissions).';
+
+
+            const body = [
+              `🚨 ${mention} the **Build LichtFeld Studio (Docker-based Apptainer)** workflow failed.`,
+              '',
+              `Run: ${runUrl}`,
+              '',
+              '**Failed jobs/steps**',
+              jobBullets,
+              '',
+              '**Where to look next**',
+              '- Download artifact: `lichtfeld_studio_docker_apptainer_build_log`.',
+              '- Open the run summary and inspect the failed step logs.',
+              '- If no job started, verify workflow syntax and repository Actions permissions.'
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: prNumber,
+              body
+            });
