@@ -32,16 +32,26 @@ jobs:
           APPTAINER_TMPDIR: ${{ runner.temp }}/apptainer-tmp
           APPTAINER_CACHEDIR: ${{ runner.temp }}/apptainer-cache
         run: |
+          set -o pipefail
           mkdir -p "$APPTAINER_TMPDIR" "$APPTAINER_CACHEDIR"
           apptainer --version
-          sudo -E apptainer build lichtfeld_studio_docker.sif lichtfeld-studio-docker.def
+          sudo -E apptainer build lichtfeld_studio_docker.sif lichtfeld-studio-docker.def 2>&1 | tee apptainer-build.log
+
+      - name: Upload Apptainer build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lichtfeld_studio_docker_apptainer_build_log
+          path: apptainer-build.log
 
       - name: Smoke test image
+        if: success()
         run: |
           apptainer exec lichtfeld_studio_docker.sif sh -c 'command -v python3 >/dev/null'
           apptainer exec lichtfeld_studio_docker.sif sh -c 'command -v gcc >/dev/null'
 
       - name: Upload SIF artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: lichtfeld_studio_docker_sif
