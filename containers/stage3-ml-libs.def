@@ -1,0 +1,26 @@
+Bootstrap: localimage
+From: stage2-python.sif
+
+%files
+    containers/requirements-ml.txt /tmp/requirements-ml.txt
+
+%labels
+    Author lichtfeld-studio
+    Stage stage3-ml-libs
+    Description ML/python libraries for stage 4 app checks
+
+%help
+    Stage 3 installs pinned ML-adjacent Python libraries and validates imports.
+
+%post
+    set -eu
+    export DEBIAN_FRONTEND=noninteractive
+    export TZ=Etc/UTC
+    ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime && echo ${TZ} >/etc/timezone
+
+    echo "=== Stage 3: ML/python libs ==="
+    python3 -m pip install --no-cache-dir -r /tmp/requirements-ml.txt
+
+%test
+    set -eu
+    python3 -c "import numpy, cv2, torch; print(numpy.__version__, cv2.__version__, torch.__version__)"

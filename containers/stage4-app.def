@@ -1,22 +1,13 @@
-# Monolithic build stage map (for reference while migrating to containers/stage*.def):
-# - Stage A: Bootstrap/base image selection (lines 9-10)
-# - Stage B: Metadata/help/environment (lines 12-33)
-# - Stage C: System package installs and tool normalization (lines 35-53)
-# - Stage D: vcpkg resolution/bootstrap (lines 55-62)
-# - Stage E: Application source clone + CMake configure/build/install (lines 64-93)
-# - Stage F: Runtime launcher + smoke test (lines 95-104)
-#
-# This monolithic def is kept for compatibility; staged definitions now live in containers/.
-
-Bootstrap: docker
-From: plasmax7/lichtfeld-studio:latest
+Bootstrap: localimage
+From: stage3-ml-libs.sif
 
 %labels
-    Description Monolithic compatibility Apptainer image for LichtFeld-Studio
+    Author lichtfeld-studio
+    Stage stage4-app
+    Description Build LichtFeld Studio application from source
 
 %help
-    Legacy monolithic build definition.
-    Prefer staged builds in containers/stage1-base.def ... containers/stage4-app.def.
+    Stage 4 clones and builds LichtFeld Studio, then provides /usr/local/bin/lichtfeld-studio.
 
 %environment
     export QT_X11_NO_MITSHM=1
@@ -29,16 +20,7 @@ From: plasmax7/lichtfeld-studio:latest
     export TZ=Etc/UTC
     ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime && echo ${TZ} >/etc/timezone
 
-    echo "=== Installing baseline tools ==="
-    apt-get update
-    apt-get install -y --no-install-recommends ca-certificates git ninja-build pkg-config python3
-    rm -rf /var/lib/apt/lists/*
-
-    if ! command -v ninja >/dev/null 2>&1 && command -v ninja-build >/dev/null 2>&1; then
-        ln -sf "$(command -v ninja-build)" /usr/local/bin/ninja
-    fi
-
-    echo "=== Resolving vcpkg ==="
+    echo "=== Stage 4: resolve vcpkg ==="
     if [ -d /home/ubuntu/vcpkg ]; then
         export VCPKG_ROOT=/home/ubuntu/vcpkg
     else
@@ -47,7 +29,7 @@ From: plasmax7/lichtfeld-studio:latest
         export VCPKG_ROOT=/opt/vcpkg
     fi
 
-    echo "=== Building LichtFeld-Studio ==="
+    echo "=== Stage 4: clone + build app ==="
     git clone --depth 1 --recursive https://github.com/MrNeRF/LichtFeld-Studio /opt/LichtFeld-Studio
     cmake -S /opt/LichtFeld-Studio -B /opt/LichtFeld-Studio/build \
         -G Ninja \
@@ -66,7 +48,11 @@ From: plasmax7/lichtfeld-studio:latest
         exit 1
     fi
 
-    ln -sf /opt/lichtfeld/bin/LichtFeld-Studio /usr/local/bin/lichtfeld-studio
+    if [ -x /opt/lichtfeld/bin/LichtFeld-Studio ]; then
+        ln -sf /opt/lichtfeld/bin/LichtFeld-Studio /usr/local/bin/lichtfeld-studio
+    else
+        ln -sf /opt/LichtFeld-Studio/build/LichtFeld-Studio /usr/local/bin/lichtfeld-studio
+    fi
 
 %runscript
     exec /usr/local/bin/lichtfeld-studio "$@"
@@ -75,4 +61,3 @@ From: plasmax7/lichtfeld-studio:latest
     set -eu
     test -x /usr/local/bin/lichtfeld-studio
     command -v python3 >/dev/null
-    command -v gcc >/dev/null
