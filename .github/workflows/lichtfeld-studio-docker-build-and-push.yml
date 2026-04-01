@@ -1,9 +1,6 @@
 name: build-and-push
 
 on:
-  push:
-    branches: [main]
-    tags: ['v*']
   workflow_dispatch:
 
 jobs:
