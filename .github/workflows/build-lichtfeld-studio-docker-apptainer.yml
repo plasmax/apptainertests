@@ -2,10 +2,6 @@ name: Build LichtFeld Studio (Docker-based Apptainer)
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'lichtfeld-studio-docker.def'
-      - '.github/workflows/build-lichtfeld-studio-docker-apptainer.yml'
 
 jobs:
   build:
