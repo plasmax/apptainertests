@@ -2,10 +2,6 @@ name: Build LichtFeld Studio (EL9)
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'lichtfeld-studio-el9.def'
-      - '.github/workflows/build-lichtfeld-studio-el9.yml'
 
 jobs:
   build:
