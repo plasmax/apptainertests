@@ -36,6 +36,7 @@ jobs:
         run: |
           apptainer exec lichtfeld_studio_docker.sif sh -c 'test -x /usr/local/bin/lichtfeld-studio'
           apptainer exec lichtfeld_studio_docker.sif sh -c 'ldd /opt/LichtFeld-Studio/build/LichtFeld-Studio >/dev/null'
+          apptainer exec lichtfeld_studio_docker.sif sh -c 'test -f /opt/LichtFeld-Studio/build/resources/assets/rmlui/training.rml'
           apptainer exec lichtfeld_studio_docker.sif sh -c 'command -v python3 >/dev/null'
 
       - name: Upload SIF artifact
