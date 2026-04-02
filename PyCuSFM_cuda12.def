@@ -1,0 +1,47 @@
+Bootstrap: docker
+From: nvcr.io/nvidia/tensorrt:24.12-py3
+
+%labels
+    Author NVIDIA CORPORATION & AFFILIATES
+    Description "PyCuSFM CUDA 12 application image for Apptainer"
+
+%files
+    pyproject.toml /opt/pycusfm/src/pyproject.toml
+    README.md /opt/pycusfm/src/README.md
+    pycusfm /opt/pycusfm/src/pycusfm
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        bash \
+        build-essential \
+        cmake \
+        git \
+        libabsl-dev \
+        libgflags-dev \
+        libgoogle-glog-dev \
+        libopencv-dev=4.6.0+dfsg-13.1ubuntu1 \
+        libprotobuf-dev \
+        protobuf-compiler \
+        python3-pip
+    python3 -m pip install --no-cache-dir --break-system-packages \
+        "setuptools<81" \
+        wheel \
+        numpy \
+        PyYAML \
+        Pillow \
+        openexr
+    python3 -m pip install --no-cache-dir --no-deps --break-system-packages /opt/pycusfm/src
+    rm -rf /opt/pycusfm/src
+    rm -rf /root/.cache/pip
+    rm -rf /var/lib/apt/lists/*
+
+%environment
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8
+    export PATH=/usr/local/bin:/usr/bin:/bin
+    export PYTHONNOUSERSITE=1
+
+%runscript
+    exec "$@"
