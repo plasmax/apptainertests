@@ -8,17 +8,16 @@ usage() {
     echo "  -c       Stop and clean up"
     echo "  -h       Show this help message"
     echo
-    echo "If a CUDA version is passed as a final positional argument (e.g. 12.8.0), it overrides auto-detection."
+    echo "If a CUDA version is passed as a final positional argument (e.g. 12.8.0), it overrides the default."
     echo "Set CUDA_OS (default: ubuntu22.04) to choose the CUDA base image OS tag."
 }
 
-# --- Default: auto-detect CUDA version
-detected_cuda=$(nvidia-smi | grep -oP 'CUDA Version: \K[0-9]+\.[0-9]+')
-if [[ -n "$detected_cuda" ]]; then
-    CUDA_VERSION="${detected_cuda}.0" # Needed because nvcc returns version without patch
-else
-    CUDA_VERSION="12.8.0"
-fi
+version_ge() {
+    [[ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -n 1)" == "$2" ]]
+}
+
+REQUIRED_CUDA_VERSION="12.8.0"
+CUDA_VERSION="$REQUIRED_CUDA_VERSION"
 
 # --- Flags
 COMPOSE_FILE="lichtfeld-studio-docker/docker-compose.yml"
@@ -41,9 +40,15 @@ done
 
 shift $((OPTIND - 1))
 
-# --- CUDA override (no validation)
+# --- CUDA override
 if [[ $# -gt 0 ]]; then
     CUDA_VERSION="$1"
+fi
+
+if ! version_ge "$CUDA_VERSION" "$REQUIRED_CUDA_VERSION"; then
+    echo "Requested CUDA version $CUDA_VERSION is too old."
+    echo "LichtFeld-Studio currently requires CUDA toolkit >= $REQUIRED_CUDA_VERSION."
+    exit 1
 fi
 
 echo "Using CUDA version: $CUDA_VERSION"
