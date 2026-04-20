@@ -10,15 +10,18 @@ From: colmap/colmap:latest
 %post
     set -eu
 
+    apt-get update
+
+    # ONNX Runtime's CUDA provider in this image depends on libcudnn.so.9.
+    # Install the cuDNN 9 runtime from the NVIDIA CUDA repo already configured
+    # in the base image so ALIKED / LightGlue can use GPU execution.
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends libcudnn9-cuda-12
+
     # Ensure pip exists, then install pycolmap-cuda12 only if pycolmap is missing.
     if ! command -v python3 >/dev/null 2>&1; then
-        apt-get update
         DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3 python3-pip
-        rm -rf /var/lib/apt/lists/*
     elif ! command -v pip3 >/dev/null 2>&1; then
-        apt-get update
         DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3-pip
-        rm -rf /var/lib/apt/lists/*
     fi
 
     if ! python3 -c "import pycolmap" >/dev/null 2>&1; then
@@ -30,6 +33,8 @@ From: colmap/colmap:latest
         # Avoid upgrading distro-managed pip (can fail on Debian/Ubuntu images).
         python3 -m pip install --no-cache-dir ${PIP_BREAK_FLAG} pycolmap-cuda12
     fi
+
+    rm -rf /var/lib/apt/lists/*
 
 %test
     set -e
