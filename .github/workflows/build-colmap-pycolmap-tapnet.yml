@@ -1,4 +1,4 @@
-name: Build COLMAP + pycolmap Apptainer
+name: Build COLMAP + pycolmap + tapnet Apptainer
 
 on:
   workflow_dispatch:
