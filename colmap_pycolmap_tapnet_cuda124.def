@@ -51,7 +51,9 @@ From: colmap/colmap:latest
         tqdm \
         OpenEXR \
         OpenImageIO \
-        OpenColorIO
+        OpenColorIO \
+        opencv-python \
+        h5py
 
     # Avoid TapNet's default JAX/notebook dependency stack.
     pip_install --no-deps \
