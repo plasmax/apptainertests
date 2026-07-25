@@ -1,0 +1,86 @@
+Bootstrap: docker
+From: colmap/colmap:latest
+
+%labels
+    Description Simple COLMAP + pycolmap-cuda12 + TAPNext++ image
+
+%environment
+    export PYTHONNOUSERSITE=1
+    export PIP_DISABLE_PIP_VERSION_CHECK=1
+
+%post
+    set -eu
+
+    apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        python3 \
+        python3-pip \
+        git \
+        ca-certificates \
+        libcudnn9-cuda-12
+
+    # Ubuntu's system Python may require this for pip installations.
+    PIP_BREAK_FLAG=""
+    if python3 -m pip install --help 2>/dev/null |
+            grep -q -- '--break-system-packages'; then
+        PIP_BREAK_FLAG="--break-system-packages"
+    fi
+
+    pip_install() {
+        python3 -m pip install \
+            --no-cache-dir \
+            ${PIP_BREAK_FLAG} \
+            "$@"
+    }
+
+    if ! python3 -c "import pycolmap" >/dev/null 2>&1; then
+        pip_install pycolmap-cuda12
+    fi
+
+    # Explicit CUDA build. cu128 also supports Blackwell GPUs.
+    python3 -m pip install \
+        --no-cache-dir \
+        ${PIP_BREAK_FLAG} \
+        --index-url https://download.pytorch.org/whl/cu128 \
+        torch torchvision
+
+    # Dependencies for Torch TAPNext++ inference I/O.
+    pip_install \
+        numpy \
+        einops \
+        tqdm \
+        OpenEXR \
+        OpenImageIO \
+        OpenColorIO
+
+    # Avoid TapNet's default JAX/notebook dependency stack.
+    pip_install --no-deps \
+        "git+https://github.com/google-deepmind/tapnet.git@main"
+
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
+
+%test
+    set -e
+
+    colmap -h >/dev/null
+
+    python3 - <<'PY'
+import pycolmap
+import torch
+import torchvision
+import einops
+import OpenEXR
+import OpenImageIO
+import PyOpenColorIO
+
+from tapnet.tapnext.tapnext_torch import TAPNext
+from tapnet.tapnextpp.votsp2026.model import TAPNextPP
+
+assert torch.version.cuda is not None, "CPU-only PyTorch was installed"
+
+print("pycolmap OK")
+print("TAPNext++ imports OK")
+print("PyTorch:", torch.__version__)
+print("PyTorch CUDA runtime:", torch.version.cuda)
+PY
