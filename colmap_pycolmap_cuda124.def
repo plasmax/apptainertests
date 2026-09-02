@@ -8,7 +8,7 @@ From: colmap/colmap:latest
     export PYTHONNOUSERSITE=1
 
 %post
-    set -euo pipefail
+    set -eu
 
     # Ensure pip exists, then install pycolmap-cuda12 only if pycolmap is missing.
     if ! command -v python3 >/dev/null 2>&1; then
