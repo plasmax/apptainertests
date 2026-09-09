@@ -33,7 +33,7 @@ jobs:
             --build-arg USER_UID=1000 \
             --build-arg USER_GID=1000 \
             --build-arg USERNAME=ubuntu \
-            -f lichtfeld-studio-docker/Dockerfile \
+            -f docker/lichtfeld-studio/Dockerfile \
             -t lichtfeld-studio:smoke \
             .
           docker run --rm lichtfeld-studio:smoke bash -lc "python3 --version && gcc --version && nvcc --version | sed -n '1,4p'"
@@ -41,7 +41,7 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./lichtfeld-studio-docker/Dockerfile
+          file: ./docker/lichtfeld-studio/Dockerfile
           push: true
           tags: |
             plasmax7/lichtfeld-studio:latest

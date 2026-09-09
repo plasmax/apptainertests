@@ -55,7 +55,7 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p /tmp/apptainer-cache
-          sudo -E apptainer build marigold2.sif marigold2.def
+          sudo -E apptainer build marigold2.sif definitions/marigold2.def
 
       - name: Smoke test
         run: |

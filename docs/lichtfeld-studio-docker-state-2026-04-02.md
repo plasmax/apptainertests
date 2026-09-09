@@ -2,7 +2,7 @@
 
 ## Current status
 
-- GitHub Actions `lichtfeld-studio-docker.def` build succeeded for the first time.
+- GitHub Actions `definitions/lichtfeld-studio-docker.def` build succeeded for the first time.
 - Reported GitHub Actions SIF size is about `10G`.
 - Known-good local runtime-test SIF is `6.4G`:
   - `/mnt/scratch/mlast/lichtfeld_studio_runtime_test.sif`
@@ -14,7 +14,7 @@
 
 ## Known-good local flow
 
-- Build Docker base image from `lichtfeld-studio-docker/Dockerfile` with CUDA `12.8.0`.
+- Build Docker base image from `docker/lichtfeld-studio/Dockerfile` with CUDA `12.8.0`.
 - Build Apptainer sandbox from `docker://plasmax7/lichtfeld-studio:latest`.
 - Build LichtFeld-Studio on `/mnt/scratch/mlast`.
 - Package a runtime-test SIF by copying the built tree into the sandbox and rebuilding the SIF.
@@ -28,21 +28,21 @@
 
 Relevant helper scripts:
 
-- [lfs-local/00-rebuild-apptainer-from-docker.sh](/mnt/scratch/mlast/apptainertests/lfs-local/00-rebuild-apptainer-from-docker.sh)
-- [lfs-local/01-verify-toolchain.sh](/mnt/scratch/mlast/apptainertests/lfs-local/01-verify-toolchain.sh)
-- [lfs-local/03-configure.sh](/mnt/scratch/mlast/apptainertests/lfs-local/03-configure.sh)
-- [lfs-local/04-build.sh](/mnt/scratch/mlast/apptainertests/lfs-local/04-build.sh)
-- [lfs-local/06-package-runtime-test-sif.sh](/mnt/scratch/mlast/apptainertests/lfs-local/06-package-runtime-test-sif.sh)
-- [lfs-local/07-run-runtime-test-sif.sh](/mnt/scratch/mlast/apptainertests/lfs-local/07-run-runtime-test-sif.sh)
+- [scripts/lfs-local/00-rebuild-apptainer-from-docker.sh](/mnt/scratch/mlast/apptainertests/scripts/lfs-local/00-rebuild-apptainer-from-docker.sh)
+- [scripts/lfs-local/01-verify-toolchain.sh](/mnt/scratch/mlast/apptainertests/scripts/lfs-local/01-verify-toolchain.sh)
+- [scripts/lfs-local/03-configure.sh](/mnt/scratch/mlast/apptainertests/scripts/lfs-local/03-configure.sh)
+- [scripts/lfs-local/04-build.sh](/mnt/scratch/mlast/apptainertests/scripts/lfs-local/04-build.sh)
+- [scripts/lfs-local/06-package-runtime-test-sif.sh](/mnt/scratch/mlast/apptainertests/scripts/lfs-local/06-package-runtime-test-sif.sh)
+- [scripts/lfs-local/07-run-runtime-test-sif.sh](/mnt/scratch/mlast/apptainertests/scripts/lfs-local/07-run-runtime-test-sif.sh)
 
 ## Important fixes already rolled into the repo
 
-- `lichtfeld-studio-docker/Dockerfile`
+- `docker/lichtfeld-studio/Dockerfile`
   - default CUDA is now `12.8.0`
-- `lichtfeld-studio-docker/run_docker.sh`
+- `docker/lichtfeld-studio/run_docker.sh`
   - removed host CUDA autodetect
   - refuses versions below `12.8.0`
-- `lichtfeld-studio-docker.def`
+- `definitions/lichtfeld-studio-docker.def`
   - builds against `/home/ubuntu/vcpkg`
   - uses default `gcc/g++`
   - launches `/usr/local/bin/lichtfeld-studio`

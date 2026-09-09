@@ -30,7 +30,7 @@ jobs:
         run: |
           mkdir -p "$APPTAINER_TMPDIR" "$APPTAINER_CACHEDIR"
           apptainer --version
-          sudo -E apptainer build lichtfeld_studio_el9.sif lichtfeld-studio-el9.def
+          sudo -E apptainer build lichtfeld_studio_el9.sif definitions/lichtfeld-studio-el9.def
 
       - name: Smoke test image
         run: |

@@ -54,7 +54,7 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p /tmp/apptainer-cache
-          sudo -E apptainer build pixel-perfect-depth.sif pixel-perfect-depth.def
+          sudo -E apptainer build pixel-perfect-depth.sif definitions/pixel-perfect-depth.def
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

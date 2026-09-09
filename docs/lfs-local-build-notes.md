@@ -72,7 +72,7 @@ cmake -S . -B build -G Ninja \
 - The next local recovery step is:
 
 ```bash
-/mnt/scratch/mlast/apptainertests/lfs-local/03-configure.sh
+/mnt/scratch/mlast/apptainertests/scripts/lfs-local/03-configure.sh
 ```
 
 - That script writes a log file under:
@@ -80,27 +80,27 @@ cmake -S . -B build -G Ninja \
 - The next command after configure succeeds is:
 
 ```bash
-/mnt/scratch/mlast/apptainertests/lfs-local/04-build.sh
+/mnt/scratch/mlast/apptainertests/scripts/lfs-local/04-build.sh
 ```
 
 ## Helper scripts
 
 - Rebuild sandbox from DockerHub image:
-  `/mnt/scratch/mlast/apptainertests/lfs-local/00-rebuild-apptainer-from-docker.sh`
+  `/mnt/scratch/mlast/apptainertests/scripts/lfs-local/00-rebuild-apptainer-from-docker.sh`
 - Verify toolchain:
-  `/mnt/scratch/mlast/apptainertests/lfs-local/01-verify-toolchain.sh`
+  `/mnt/scratch/mlast/apptainertests/scripts/lfs-local/01-verify-toolchain.sh`
 - Clone source:
-  `/mnt/scratch/mlast/apptainertests/lfs-local/02-clone-source.sh`
+  `/mnt/scratch/mlast/apptainertests/scripts/lfs-local/02-clone-source.sh`
 - Reconfigure with logging:
-  `/mnt/scratch/mlast/apptainertests/lfs-local/03-configure.sh`
+  `/mnt/scratch/mlast/apptainertests/scripts/lfs-local/03-configure.sh`
 - Build with logging:
-  `/mnt/scratch/mlast/apptainertests/lfs-local/04-build.sh`
+  `/mnt/scratch/mlast/apptainertests/scripts/lfs-local/04-build.sh`
 - Run the GUI directly from the build tree in the sandbox:
-  `/mnt/scratch/mlast/apptainertests/lfs-local/05-run-gui-from-build-tree.sh`
+  `/mnt/scratch/mlast/apptainertests/scripts/lfs-local/05-run-gui-from-build-tree.sh`
 - Package a runtime-test SIF from the current sandbox + build tree:
-  `/mnt/scratch/mlast/apptainertests/lfs-local/06-package-runtime-test-sif.sh`
+  `/mnt/scratch/mlast/apptainertests/scripts/lfs-local/06-package-runtime-test-sif.sh`
 - Run a packaged runtime-test SIF on a GUI workstation:
-  `/mnt/scratch/mlast/apptainertests/lfs-local/07-run-runtime-test-sif.sh`
+  `/mnt/scratch/mlast/apptainertests/scripts/lfs-local/07-run-runtime-test-sif.sh`
 
 ## Latest working state
 

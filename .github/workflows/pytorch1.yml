@@ -23,7 +23,7 @@ jobs:
         run: |
           mkdir -p "$APPTAINER_TMPDIR"
           apptainer --version
-          sudo -E apptainer build torch1.sif torch1.def
+          sudo -E apptainer build torch1.sif definitions/torch1.def
 
       - name: Upload SIF artifact
         uses: actions/upload-artifact@v4

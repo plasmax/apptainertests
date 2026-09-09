@@ -2,6 +2,13 @@
 
 Keep these guidelines concise and reusable for all build recipes/workflows.
 
+## Repo layout
+- `definitions/` — Apptainer `.def` files, kebab-case names.
+- `docker/<image>/` — Docker build contexts.
+- `scripts/lfs-local/` — local (non-CI) build helpers.
+- `docs/` — build notes and state write-ups.
+- Workflows build from the repo root, so paths are `definitions/foo.def`, `docker/foo/Dockerfile`.
+
 ## Apptainer definition files
 - In `%post`, assume `/bin/sh` (not bash). Use `set -eu` (avoid `-o pipefail` unless you explicitly run bash).
 - Prefer simple, upstream base images when possible; only add minimum packages/tools needed.

@@ -20,7 +20,7 @@ REQUIRED_CUDA_VERSION="12.8.0"
 CUDA_VERSION="$REQUIRED_CUDA_VERSION"
 
 # --- Flags
-COMPOSE_FILE="lichtfeld-studio-docker/docker-compose.yml"
+COMPOSE_FILE="docker/lichtfeld-studio/docker-compose.yml"
 CUDA_OS="${CUDA_OS:-ubuntu22.04}"
 BUILD=false
 BUILD_ARGS=""

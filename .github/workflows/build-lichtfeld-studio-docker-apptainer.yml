@@ -30,7 +30,7 @@ jobs:
         run: |
           mkdir -p "$APPTAINER_TMPDIR" "$APPTAINER_CACHEDIR"
           apptainer --version
-          sudo -E apptainer build lichtfeld_studio_docker.sif lichtfeld-studio-docker.def
+          sudo -E apptainer build lichtfeld_studio_docker.sif definitions/lichtfeld-studio-docker.def
 
       - name: Smoke test image
         run: |

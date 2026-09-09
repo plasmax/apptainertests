@@ -54,7 +54,7 @@ RUN apt-get update && \
     update-alternatives --set gfortran /usr/bin/gfortran-14 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-COPY lichtfeld-studio-docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY docker/lichtfeld-studio/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # --- User Setup

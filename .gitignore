@@ -1,0 +1,15 @@
+# Build outputs
+*.sif
+*.simg
+*.sandbox/
+*.whl
+
+# Logs
+*.log
+logs/
+
+# Editor / OS cruft
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

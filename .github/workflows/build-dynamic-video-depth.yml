@@ -54,7 +54,7 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p /tmp/apptainer-cache
-          sudo -E apptainer build dynamic-video-depth.sif dynamic-video-depth.def
+          sudo -E apptainer build dynamic-video-depth.sif definitions/dynamic-video-depth.def
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
