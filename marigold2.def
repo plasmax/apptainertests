@@ -1,0 +1,68 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+# Runtime for Marigold V2 (https://github.com/huawei-bayerlab/marigold-v2).
+# The repo itself is not installed into the image: bind it in and put its root
+# on PYTHONPATH (see the repo's apptainer-python wrapper), so only third-party
+# dependencies live here. Pins mirror pyproject.toml and setup/setup_env.sh.
+
+%post
+    set -eu
+
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        python3.10 python3-pip \
+        ca-certificates curl \
+        libglib2.0-0 libgl1 libxcb1 \
+        && rm -rf /var/lib/apt/lists/*
+
+    python3.10 -m pip install -U pip uv
+
+    # Torch pin from setup/setup_env.sh (CUDA 12.8 wheels).
+    uv pip install --system \
+        --index-url https://download.pytorch.org/whl/cu128 \
+        torch==2.10.0 \
+        torchvision==0.25.0
+
+    # Dependencies of the marigold-v2 package (pyproject.toml [project].dependencies).
+    cat > /tmp/requirements.txt <<'EOF'
+accelerate==1.13.0
+bitsandbytes==0.49.2
+diffusers==0.38.0
+h5py>=3.10
+huggingface_hub==1.8.0
+lpips==0.1.4
+matplotlib==3.10.8
+numpy==2.2.5
+omegaconf==2.3.0
+opencv-python-headless==4.13.0.92
+pandas==2.3.3
+peft==0.18.1
+pillow==12.1.1
+pyarrow==18.0
+PyYAML==6.0.3
+safetensors==0.8.0
+scikit-image==0.25.2
+scikit-learn==1.7.2
+scipy==1.15.3
+tabulate==0.10.0
+tensorboard==2.20.0
+tqdm==4.67.3
+transformers==5.4.0
+wandb==0.26.1
+EOF
+    uv pip install --system -r /tmp/requirements.txt
+    rm /tmp/requirements.txt
+
+    uv pip install --system pyright[nodejs] pytest
+
+%environment
+    export PYTHONUNBUFFERED=1
+
+%test
+    python3.10 -c "import torch, torchvision; print('torch', torch.__version__); print('cuda', torch.cuda.is_available())"
+    python3.10 -c "import diffusers, transformers, peft, accelerate; print('diffusers', diffusers.__version__, 'transformers', transformers.__version__)"
+    python3.10 -c "from diffusers import AutoencoderKLQwenImage, QwenImageTransformer2DModel; print('qwen image classes ok')"
+    python3.10 -c "import cv2, omegaconf, safetensors, skimage, lpips; print('cv2', cv2.__version__)"
+    # No GPU on a build runner: import only, kernels are exercised at runtime.
+    python3.10 -c "import bitsandbytes; print('bitsandbytes', bitsandbytes.__version__)" || echo "bitsandbytes import failed without a GPU; verify on a GPU node"
