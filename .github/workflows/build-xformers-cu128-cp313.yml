@@ -40,7 +40,7 @@ jobs:
         run: df -h
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Build xFormers wheel (manylinux_2_34 + CUDA 12.8 + CPython 3.13)
         env:
@@ -100,7 +100,7 @@ jobs:
             '
 
       - name: Upload wheel artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: xformers-cu128-cp313-manylinux_2_34-wheel
           path: dist/*.whl

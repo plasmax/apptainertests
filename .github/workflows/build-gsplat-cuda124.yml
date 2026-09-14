@@ -39,7 +39,7 @@ jobs:
         run: df -h
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Apptainer
         uses: eWaterCycle/setup-apptainer@v2
@@ -57,7 +57,7 @@ jobs:
           sudo -E apptainer build gsplat-cuda124.sif definitions/gsplat-cuda124.def
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gsplat-cuda124-sif
           path: gsplat-cuda124.sif

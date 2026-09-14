@@ -39,7 +39,7 @@ jobs:
         run: df -h
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Apptainer
         uses: eWaterCycle/setup-apptainer@v2
@@ -57,7 +57,7 @@ jobs:
           sudo -E apptainer build pixel-perfect-depth.sif definitions/pixel-perfect-depth.def
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pixel-perfect-depth-sif
           path: pixel-perfect-depth.sif

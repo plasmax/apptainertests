@@ -39,7 +39,7 @@ jobs:
         run: df -h
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Apptainer
         uses: eWaterCycle/setup-apptainer@v2
@@ -57,7 +57,7 @@ jobs:
           sudo -E apptainer build vda-ubuntu-base-cpu.sif definitions/vda-ubuntu-base-cpu.def
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vda-ubuntu-base-cpu-sif
           path: vda-ubuntu-base-cpu.sif

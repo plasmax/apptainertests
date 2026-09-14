@@ -9,7 +9,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Apptainer
         uses: eWaterCycle/setup-apptainer@v2
@@ -45,7 +45,7 @@ jobs:
           apptainer exec lichtfeld_studio_el9.sif sh -c 'ar t /opt/LichtFeld-Studio/build/vcpkg_installed/x64-linux/lib/libSDL3.a | grep -Eq "x11|wayland"'
 
       - name: Upload SIF artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lichtfeld_studio_el9_sif
           path: lichtfeld_studio_el9.sif

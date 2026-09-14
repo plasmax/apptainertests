@@ -9,7 +9,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Apptainer
         uses: eWaterCycle/setup-apptainer@v2
@@ -40,7 +40,7 @@ jobs:
           apptainer exec lichtfeld_studio_docker.sif sh -c 'command -v python3 >/dev/null'
 
       - name: Upload SIF artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lichtfeld_studio_docker_sif
           path: lichtfeld_studio_docker.sif

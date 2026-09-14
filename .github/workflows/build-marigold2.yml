@@ -40,7 +40,7 @@ jobs:
         run: df -h
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Apptainer
         uses: eWaterCycle/setup-apptainer@v2
@@ -67,7 +67,7 @@ jobs:
           ls -lh marigold2.sif
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: marigold2-sif
           path: marigold2.sif

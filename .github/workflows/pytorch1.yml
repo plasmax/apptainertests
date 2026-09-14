@@ -9,7 +9,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Apptainer
         uses: eWaterCycle/setup-apptainer@v2
@@ -26,7 +26,7 @@ jobs:
           sudo -E apptainer build torch1.sif definitions/torch1.def
 
       - name: Upload SIF artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: torch1.sif
           path: torch1.sif
