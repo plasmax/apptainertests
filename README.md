@@ -23,6 +23,7 @@ Builds run from the repo root, e.g. `apptainer build gsplat-cuda124.sif definiti
 | --- | --- | --- |
 | `colmap-pycolmap-cuda124.def` | `colmap/colmap` | [![Build COLMAP + pycolmap Apptainer](https://github.com/plasmax/apptainertests/actions/workflows/build-colmap-pycolmap.yml/badge.svg)](https://github.com/plasmax/apptainertests/actions/workflows/build-colmap-pycolmap.yml) |
 | `colmap-pycolmap-tapnet-cuda124.def` | `colmap/colmap` | [![Build COLMAP + pycolmap + tapnet](https://github.com/plasmax/apptainertests/actions/workflows/build-colmap-pycolmap-tapnet.yml/badge.svg)](https://github.com/plasmax/apptainertests/actions/workflows/build-colmap-pycolmap-tapnet.yml) |
+| `corridorkey2.def` | `python:3.11-slim-bookworm` | [![CorridorKey 2.0 (GPU)](https://github.com/plasmax/apptainertests/actions/workflows/build-corridorkey2.yml/badge.svg)](https://github.com/plasmax/apptainertests/actions/workflows/build-corridorkey2.yml) |
 | `dynamic-video-depth.def` | `ubuntu:22.04` | [![Dynamic Video Depth (GPU)](https://github.com/plasmax/apptainertests/actions/workflows/build-dynamic-video-depth.yml/badge.svg)](https://github.com/plasmax/apptainertests/actions/workflows/build-dynamic-video-depth.yml) |
 | `gsplat-cuda124.def` | `ubuntu:22.04` | [![GSPLAT-CUDA124](https://github.com/plasmax/apptainertests/actions/workflows/build-gsplat-cuda124.yml/badge.svg)](https://github.com/plasmax/apptainertests/actions/workflows/build-gsplat-cuda124.yml) |
 | `helloworld.def` | `alpine` | [![Build Apptainer Image](https://github.com/plasmax/apptainertests/actions/workflows/build-helloworld-apptainer.yml/badge.svg)](https://github.com/plasmax/apptainertests/actions/workflows/build-helloworld-apptainer.yml) |
@@ -52,6 +53,8 @@ from the repo root to build and enter the dev container.
 builds an xFormers wheel (CUDA 12.8 / CPython 3.13) directly on the runner — no definition file.
 
 ## Docs
+
+- [docs/corridorkey2.md](docs/corridorkey2.md) — model-free CorridorKey 2.0 image, model download, and offline usage
 
 - [docs/lfs-local-build-notes.md](docs/lfs-local-build-notes.md) — running the `scripts/lfs-local/` build chain
 - [docs/lichtfeld-studio-el9-notes.md](docs/lichtfeld-studio-el9-notes.md) — EL9 from-source build notes

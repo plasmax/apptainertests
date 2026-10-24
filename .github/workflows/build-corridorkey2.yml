@@ -1,0 +1,72 @@
+name: CorridorKey 2.0 (GPU)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Disk usage (before)
+        run: df -h
+
+      - name: Free disk space (aggressive)
+        run: |
+          set -euxo pipefail
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          sudo rm -rf /usr/local/.ghcup /usr/share/swift /usr/lib/jvm
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
+          sudo rm -rf /tmp/*
+          docker system prune -af || true
+          df -h
+
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Test download helper
+        run: python3 scripts/corridorkey2/test-download-models.py
+
+      - name: Install Apptainer
+        uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: 1.3.6
+
+      - name: Build image without models
+        env:
+          APPTAINER_TMPDIR: /tmp
+          APPTAINER_CACHEDIR: /tmp/apptainer-cache
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/apptainer-cache
+          sudo -E apptainer build corridorkey2.sif definitions/corridorkey2.def
+
+      - name: Smoke test with an isolated home
+        run: |
+          set -euxo pipefail
+          apptainer test --cleanenv --containall corridorkey2.sif
+          apptainer run --cleanenv --containall corridorkey2.sif --help
+          # Check that the helper fails clearly with missing models, offline.
+          if apptainer exec --cleanenv --containall corridorkey2.sif corridorkey-download-models --check > missing-models.log 2>&1; then
+            echo 'ERROR: model check unexpectedly passed in a model-free image'
+            exit 1
+          fi
+          grep -F 'Missing or empty model files:' missing-models.log
+          apptainer exec --cleanenv corridorkey2.sif cat /opt/corridorkey-python-packages.txt > corridorkey2-packages.txt
+          sha256sum corridorkey2.sif > corridorkey2.sif.sha256
+          ls -lh corridorkey2.sif
+
+      - name: Upload image and build manifest
+        uses: actions/upload-artifact@v7
+        with:
+          name: corridorkey2-sif
+          compression-level: 0
+          if-no-files-found: error
+          path: |
+            corridorkey2.sif
+            corridorkey2.sif.sha256
+            corridorkey2-packages.txt

@@ -1,0 +1,68 @@
+Bootstrap: docker
+From: python:3.11-slim-bookworm
+
+# Build from the repository root. Models are deliberately downloaded separately.
+%files
+    scripts/corridorkey2/download-models.py /usr/local/bin/corridorkey-download-models
+    scripts/corridorkey2/corridorkey /usr/local/bin/corridorkey
+    scripts/corridorkey2/smoke-test.py /opt/corridorkey-smoke-test.py
+
+%post
+    set -eu
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        ca-certificates git ffmpeg libgl1 libglib2.0-0 libgomp1
+    rm -rf /var/lib/apt/lists/*
+
+    git init /opt/CorridorKey
+    cd /opt/CorridorKey
+    git remote add origin https://github.com/nikopueringer/CorridorKey2.0.git
+    git fetch --depth 1 origin 485f5e9ab759ead6138cc990776184b59d6ea971
+    git checkout --detach FETCH_HEAD
+    git rev-parse HEAD > /opt/corridorkey-source-revision
+    rm -rf .git
+
+    python -m pip install --no-cache-dir \
+        torch==2.9.1 torchvision==0.24.1 \
+        --index-url https://download.pytorch.org/whl/cu128
+    # OpenCV >=4.12 requires NumPy 2 on Python 3.11, conflicting with upstream.
+    printf '%s\n' 'numpy==1.26.4' 'opencv-python==4.11.0.86' > /tmp/ck-constraints.txt
+    python -m pip install --no-cache-dir \
+        -c /tmp/ck-constraints.txt -r requirements.txt
+    python -m pip check
+    python -m pip freeze > /opt/corridorkey-python-packages.txt
+    rm /tmp/ck-constraints.txt
+
+    # RuntimePaths expects these locations. A single host bind supplies both.
+    rm -rf weights vfms
+    mkdir -p /models/weights /models/vfms
+    ln -s /models/weights weights
+    ln -s /models/vfms vfms
+    chmod 755 /usr/local/bin/corridorkey /usr/local/bin/corridorkey-download-models
+
+%environment
+    export PYTHONNOUSERSITE=1
+    export PYTHONUNBUFFERED=1
+    export PYTHONDONTWRITEBYTECODE=1
+    export PYTHONPATH=/opt/CorridorKey:/opt/CorridorKey/third_party/MoGe
+    export HF_HUB_OFFLINE=1
+    export TRANSFORMERS_OFFLINE=1
+    export HF_HUB_DISABLE_TELEMETRY=1
+    export OPENCV_IO_ENABLE_OPENEXR=1
+
+%runscript
+    exec /usr/local/bin/corridorkey "$@"
+
+%test
+    set -eu
+    ffmpeg -version
+    python /opt/corridorkey-smoke-test.py
+    corridorkey --help
+    corridorkey-download-models --help
+
+%help
+    Download models once (internet required):
+      mkdir -p models
+      apptainer exec --cleanenv --bind "$PWD/models:/models" corridorkey2.sif corridorkey-download-models
+    Run offline (NVIDIA GPU and compatible host driver required):
+      apptainer run --cleanenv --nv --bind "$PWD/models:/models:ro" corridorkey2.sif --input shot.mp4 --output_dir output
