@@ -84,6 +84,41 @@ the workstation Ampere RTX A6000 is also suitable. The GTX 1050 Ti is unsuitable
 For low memory, add `--low_vram`; upstream documents 4 GB for up to 1440p and
 6 GB for 4K with reduced temporal windows. Native resolution is preserved.
 
+## Selected frame ranges
+
+Add `--start_frame 1050 --end_frame 1100` to process frames 1050 through 1100,
+inclusive (51 frames). These are the frame numbers in filenames such as
+`plate.1050.exr`, not offsets from the first file:
+
+```sh
+apptainer run --cleanenv --nv --bind /absolute/path/to/models:/models:ro corridorkey2.sif \
+    --input /job/path/to/plate_frames --frame_dir_linear --frame_dir_fps 24 \
+    --start_frame 1050 --end_frame 1100 \
+    --hint_video /job/path/to/roto_frames --hint_channel r --no_carry_hint \
+    --output_format exr --outputs alpha fg --output_dir /job/path/to/output
+```
+
+Either bound may be omitted to use the sequence's first/last frame. Use one
+numbered sequence per directory; the final digits before the extension are the
+frame number. Missing frames and duplicate numbers raise errors.
+
+Full-shot image hints are matched by frame number, so the roto can have a
+different prefix or cover a different overall range. Every selected plate frame
+must have a matching hint. For `--hint_first_frame`, a single image must match
+the **selected start frame**; a numbered hint directory automatically selects
+that frame.
+
+The launcher makes temporary symlinks only; it does not copy or re-render plates
+or roto. Source directories can remain read-only. Links are cleaned up when the
+run exits; `--temp_dir` can specify their temporary parent directory. Output
+sequences keep upstream's numbering starting at zero, rather than the plate's
+original frame numbers.
+
+Range selection is for image directories, including EXR, PNG, JPG, and JPEG.
+Do not combine it with `--num_frames`, non-default `--start_mode`, or a full-shot
+hint video file; supply image-sequence hints for frame-number alignment. Rebuild
+the SIF to use these launcher options.
+
 ## Roto / matte hints
 
 For a first-frame hint, render one EXR with the desired matte in alpha,
