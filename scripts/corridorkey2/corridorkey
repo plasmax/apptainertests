@@ -2,4 +2,4 @@
 set -eu
 # Keep the caller's working directory so relative input/output paths work.
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
-exec python /opt/CorridorKey/infer.py "$@"
+exec python /opt/corridorkey-launch.py "$@"

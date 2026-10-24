@@ -6,6 +6,8 @@ From: python:3.11-slim-bookworm
     scripts/corridorkey2/download-models.py /usr/local/bin/corridorkey-download-models
     scripts/corridorkey2/corridorkey /usr/local/bin/corridorkey
     scripts/corridorkey2/smoke-test.py /opt/corridorkey-smoke-test.py
+    scripts/corridorkey2/hint-channels.py /opt/corridorkey-launch.py
+    scripts/corridorkey2/test-hint-channels.py /opt/test-hint-channels.py
 
 %post
     set -eu
@@ -57,6 +59,7 @@ From: python:3.11-slim-bookworm
     set -eu
     ffmpeg -version
     python /opt/corridorkey-smoke-test.py
+    python /opt/test-hint-channels.py
     corridorkey --help
     corridorkey-download-models --help
 

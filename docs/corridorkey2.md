@@ -84,6 +84,53 @@ the workstation Ampere RTX A6000 is also suitable. The GTX 1050 Ti is unsuitable
 For low memory, add `--low_vram`; upstream documents 4 GB for up to 1440p and
 6 GB for 4K with reduced temporal windows. Native resolution is preserved.
 
+## Roto / matte hints
+
+For a first-frame hint, render one EXR with the desired matte in alpha,
+matching the first plate frame and its resolution. Add these arguments to your
+normal inference command (the plate still uses `--frame_dir_linear`):
+
+```sh
+--hint_first_frame /job/path/to/first_frame_hint.exr --hint_quality 0.95
+```
+
+Default carry propagates the predictions beyond that first explicit hint.
+For a matte sequence covering the whole shot, use the sequence directory:
+
+```sh
+--hint_video /job/path/to/roto_frames --hint_quality 0.95 --no_carry_hint
+```
+
+Keep plate and hint sequences in matching sorted frame order. Hints are matte
+values, not colour-managed images. They guide prediction rather than enforce a
+hard holdout.
+
+The container launcher adds `--hint_channel` to select the channel(s) in either
+first-frame or full-shot hints, without rewriting the original EXRs:
+
+| Option | Matte |
+| --- | --- |
+| `--hint_channel r` | Red (also accepts `red`) |
+| `--hint_channel g` | Green (also accepts `green`) |
+| `--hint_channel b` | Blue (also accepts `blue`) |
+| `--hint_channel a` | Alpha (also accepts `alpha`) |
+| `--hint_channel rgb` | Maximum of red, green, and blue |
+| `--hint_channel r,g` | Maximum of the selected channels; other combinations also work |
+| `--hint_channel auto` | Unchanged upstream behaviour (default) |
+
+Example: add `--hint_channel r` alongside `--hint_video` to use red-channel roto,
+even if the EXRs also have an alpha channel. Combinations use a per-pixel maximum,
+not a sum or grayscale conversion. Selected channels must exist; missing channels
+raise an error. Single-channel images work with `auto`. The option also applies
+to decoded hint videos, but their decoder normally exposes RGB without alpha.
+Only standard R/G/B/A channels are supported, not arbitrary multilayer EXR names.
+
+With `auto`, upstream first-frame hints use alpha for RGBA or blue for RGB;
+full-shot hints instead convert RGB to grayscale. Set an explicit channel to
+make selection consistent between these two paths. This option requires a rebuilt
+SIF and use of `apptainer run` (or `apptainer exec ... corridorkey`); calling
+`python /opt/CorridorKey/infer.py` directly bypasses the container launcher.
+
 ## Verification
 
 The workflow runs helper tests, `pip check`, imports of the runtime and vendored

@@ -50,6 +50,7 @@ jobs:
           set -euxo pipefail
           apptainer test --cleanenv --containall corridorkey2.sif
           apptainer run --cleanenv --containall corridorkey2.sif --help
+          apptainer run --cleanenv --containall corridorkey2.sif --hint_channel r --help
           # Check that the helper fails clearly with missing models, offline.
           if apptainer exec --cleanenv --containall corridorkey2.sif corridorkey-download-models --check > missing-models.log 2>&1; then
             echo 'ERROR: model check unexpectedly passed in a model-free image'
