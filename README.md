@@ -10,7 +10,6 @@ from the Actions tab.
 | --- | --- |
 | `definitions/` | Apptainer definition files (`.def`) |
 | `docker/` | Docker build contexts (`lichtfeld-studio/`, `megasam/`) |
-| `scripts/corridorkey2/` | CorridorKey model downloader, launcher, and smoke tests |
 | `scripts/lfs-local/` | Numbered helper scripts for building LichtFeld Studio on a local host |
 | `docs/` | Build notes and state write-ups |
 | `.github/workflows/` | CI build workflows |
@@ -37,43 +36,6 @@ Builds run from the repo root, e.g. `apptainer build gsplat-cuda124.sif definiti
 | `vda-ubuntu-base-cpu.def` | `ubuntu:22.04` | [![VDA-UBUNTU-PYRIGHT (CPU)](https://github.com/plasmax/apptainertests/actions/workflows/build-vda-ubuntu-base-cpu.yml/badge.svg)](https://github.com/plasmax/apptainertests/actions/workflows/build-vda-ubuntu-base-cpu.yml) |
 | `pycusfm-cuda12.def` | `nvcr.io/nvidia/tensorrt` | none — needs the PyCuSFM source tree (`pyproject.toml`, `pycusfm/`) in the build context |
 
-## CorridorKey 2.0 quick start
-
-The image includes CorridorKey's source, Python dependencies, CUDA-enabled
-PyTorch, FFmpeg, and EXR support. **Models are downloaded separately** into a
-portable host directory.
-
-1. Open [CorridorKey 2.0 (GPU)](https://github.com/plasmax/apptainertests/actions/workflows/build-corridorkey2.yml),
-   select **Run workflow**, then download and extract the `corridorkey2-sif`
-   artifact from the completed run.
-2. Download all models once on an internet-connected Linux machine with Apptainer
-   (no GPU required):
-
-   ```sh
-   mkdir -p models
-   apptainer exec --cleanenv --bind "$PWD/models:/models" corridorkey2.sif \
-       corridorkey-download-models
-   ```
-
-3. Copy the SIF and the **entire** `models/` directory to your offline workstation.
-   Check the required files and run inference:
-
-   ```sh
-   apptainer exec --cleanenv --bind "$PWD/models:/models:ro" corridorkey2.sif \
-       corridorkey-download-models --check
-
-   apptainer run --cleanenv --nv --bind "$PWD/models:/models:ro" corridorkey2.sif \
-       --input shot.mp4 --output_dir output
-   ```
-
-Inference requires a compatible NVIDIA GPU and host driver for CUDA 12.8.
-All upstream inference arguments pass through; add `--low_vram` to reduce memory
-use, or `--output_format exr` for EXR sequences. Bind storage outside your working
-directory or home explicitly with `--bind /path:/path`.
-
-For local builds, linear EXR input, model revision pinning, and GPU validation,
-see [CorridorKey 2.0 instructions](docs/corridorkey2.md).
-
 ## Docker images
 
 | Context | Workflow |
@@ -92,7 +54,6 @@ builds an xFormers wheel (CUDA 12.8 / CPython 3.13) directly on the runner — n
 
 ## Docs
 
-- [docs/corridorkey2.md](docs/corridorkey2.md) — model-free CorridorKey 2.0 image, model download, and offline usage
 - [docs/lfs-local-build-notes.md](docs/lfs-local-build-notes.md) — running the `scripts/lfs-local/` build chain
 - [docs/lichtfeld-studio-el9-notes.md](docs/lichtfeld-studio-el9-notes.md) — EL9 from-source build notes
 - [docs/lichtfeld-studio-docker-state-2026-04-02.md](docs/lichtfeld-studio-docker-state-2026-04-02.md) — Docker-based build state snapshot
